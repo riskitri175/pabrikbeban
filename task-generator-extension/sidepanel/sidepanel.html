@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Generator</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="app">
+
+    <!-- ===== DASHBOARD VIEW ===== -->
+    <div id="view-dashboard">
+      <header class="header">
+        <div class="header__info">
+          <h1 class="header__title">Task Generator</h1>
+          <div class="header__workspace-selector">
+            <select id="workspace-switcher" class="header__select"></select>
+            <a href="#" id="manage-workspaces-link" class="header__manage-link" title="Manage Workspaces">&#9881;</a>
+          </div>
+        </div>
+        <button class="header__refresh" id="refresh-btn" title="Refresh">&circlearrowright;</button>
+      </header>
+
+      <div class="toolbar">
+        <div class="toolbar__search">
+          <input class="toolbar__input" type="text" id="search-input" placeholder="Search tasks by keyword or key (e.g. PROJ-123)">
+          <button class="toolbar__search-btn" id="search-btn">&#128269;</button>
+        </div>
+        <select class="toolbar__filter" id="status-filter">
+          <option value="">All Statuses</option>
+          <option value="backlog">Backlog</option>
+          <option value="todo">Todo</option>
+          <option value="in_progress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+
+      <main class="main">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-state__icon">&#128203;</div>
+          <p class="empty-state__text">Belum ada task.<br>Klik <strong>Create Task</strong> untuk memulai.</p>
+        </div>
+
+        <div class="task-table-wrapper" id="task-table-wrapper" style="display:none">
+          <table class="task-table">
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>Title</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="task-table-body"></tbody>
+          </table>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <button class="btn btn--primary" id="create-task-btn">+ Create Task</button>
+        <button class="btn btn--secondary" id="fetch-external-btn">&#128279; Fetch External</button>
+      </footer>
+    </div>
+
+    <!-- ===== CREATE TASK VIEW ===== -->
+    <div id="view-create-task" style="display:none">
+      <header class="header">
+        <div class="header__info">
+          <h1 class="header__title">Create Task</h1>
+          <span class="header__back" id="back-to-dashboard">&larr; Back</span>
+        </div>
+      </header>
+
+      <main class="main create-task">
+        <div class="form-group">
+          <label class="form-group__label" for="ct-template">Select Template</label>
+          <select class="form-group__input" id="ct-template">
+            <option value="">— Select template —</option>
+          </select>
+        </div>
+
+        <div id="ct-form">
+          <hr class="divider">
+
+          <div class="form-group">
+            <label class="form-group__label" for="ct-bracket">Bracket Category</label>
+            <select class="form-group__input" id="ct-bracket"></select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-group__label" for="ct-severity">Severity</label>
+              <select class="form-group__input" id="ct-severity"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-group__label" for="ct-priority">Priority</label>
+              <select class="form-group__input" id="ct-priority"></select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label" for="ct-title">Action + Object Title</label>
+            <input class="form-group__input" type="text" id="ct-title" maxlength="120" placeholder="e.g. Fix Duplicate Point Calculation">
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label">Full Generated Title</label>
+            <div class="badge badge--preview" id="ct-full-title">—</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label" for="ct-story">Requirement Story</label>
+            <textarea class="form-group__textarea" id="ct-story" rows="3" placeholder="As a user, I want..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label">Acceptance Criteria</label>
+            <div id="ct-ac-list"></div>
+            <button class="btn btn--secondary btn--sm" id="ct-add-ac">+ Add Criterion</button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label">Definition of Done</label>
+            <div id="ct-dod-list"></div>
+          </div>
+
+          <div id="ct-custom-fields"></div>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <button class="btn btn--secondary" id="ct-save-draft">Save Draft</button>
+        <button class="btn btn--primary" id="ct-preview-btn">Preview Task</button>
+      </footer>
+    </div>
+
+  </div>
+
+  <!-- ===== FETCH MODAL ===== -->
+  <div class="modal-overlay" id="fetch-modal">
+    <div class="modal">
+      <div class="modal__header">
+        <h3 class="modal__title">Search & Fetch External Task</h3>
+        <button class="modal__close" id="fetch-modal-close">&times;</button>
+      </div>
+      <div class="modal__body">
+        <div class="form-group">
+          <label class="form-group__label" for="fetch-keyword">Search Keyword or Issue Key</label>
+          <input class="form-group__input" type="text" id="fetch-keyword" placeholder="e.g. PROJ-123 or keyword">
+        </div>
+        <div class="form-group">
+          <label class="form-group__label">
+            <input type="checkbox" id="include-child-tasks" checked>
+            Include Child Tasks
+          </label>
+        </div>
+        <div class="search-results" id="search-results">
+          <p class="empty-state__text">Enter a keyword to search.</p>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--primary" id="fetch-search-btn">Search</button>
+        <button class="btn btn--secondary" id="fetch-import-btn" disabled>Import to Workspace</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../utils/templates-preset.js"></script>
+  <script src="../utils/storage.js"></script>
+  <script src="../utils/plane-api.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

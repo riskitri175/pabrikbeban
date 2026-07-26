@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Generator</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app">
+    <!-- ===== LEFT PANEL (2/3) ===== -->
+    <div class="panel panel--main">
+      <header class="header">
+        <div class="header__info">
+          <h1 class="header__title">Task Generator</h1>
+          <div class="header__workspace-selector">
+            <select id="workspace-switcher" class="header__select"></select>
+            <a href="#" id="manage-workspaces-link" class="header__manage-link" title="Manage Workspaces">&#9881;</a>
+          </div>
+        </div>
+        <button class="header__refresh" id="refresh-btn" title="Refresh">&circlearrowright;</button>
+      </header>
+
+      <div class="toolbar">
+        <div class="toolbar__tabs">
+          <button class="toolbar__tab toolbar__tab--active" data-mode="search">&#128269; Search</button>
+          <button class="toolbar__tab" data-mode="batch">&#128203; Batch</button>
+        </div>
+        <div class="toolbar__controls toolbar__controls--search">
+          <div class="toolbar__search">
+            <input class="toolbar__input" type="text" id="search-input" placeholder="Keyword or PROJ-123">
+            <button class="toolbar__search-btn" id="search-btn">&#128269;</button>
+          </div>
+          <select class="toolbar__filter" id="status-filter">
+            <option value="">All</option>
+            <option value="backlog">Backlog</option>
+            <option value="todo">Todo</option>
+            <option value="in_progress">In Progress</option>
+            <option value="done">Done</option>
+          </select>
+        </div>
+        <div class="toolbar__controls toolbar__controls--batch" style="display:none">
+          <label class="toolbar__select-all"><input type="checkbox" id="batch-select-all"> Select All</label>
+          <span class="toolbar__count" id="batch-count">0 tasks</span>
+        </div>
+      </div>
+
+      <main class="main">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-state__icon">&#128203;</div>
+          <p class="empty-state__text">Belum ada task.<br>Klik <strong>Create Task</strong> di kanan untuk memulai.</p>
+        </div>
+
+        <div class="search-view" id="search-view">
+          <div class="search-info" id="search-info" style="display:none">
+            <div class="search-spinner" id="search-spinner"></div>
+            <p class="search-info__text" id="search-info-text"></p>
+          </div>
+          <div class="task-table-wrapper" id="task-table-wrapper" style="display:none">
+            <table class="task-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Title</th>
+                  <th>Priority</th>
+                  <th>Assignee</th>
+                </tr>
+              </thead>
+              <tbody id="task-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="batch-view" id="batch-view" style="display:none">
+          <div id="batch-task-list"></div>
+          <div class="batch-refine-bar" id="batch-refine-bar" style="display:none">
+            <input class="form-group__input" type="text" id="batch-refine-input" placeholder="e.g. Add rate limiting validation to all tasks...">
+            <button class="btn btn--primary btn--sm" id="batch-refine-apply">Apply</button>
+            <button class="btn btn--secondary btn--sm" id="batch-refine-cancel">Cancel</button>
+          </div>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <div class="footer__actions footer__actions--search">
+          <button class="btn btn--secondary" id="fetch-external-btn">&#128279; Fetch External</button>
+        </div>
+        <div class="footer__actions footer__actions--batch" style="display:none">
+          <button class="btn btn--primary" id="batch-submit-btn">Submit Selected</button>
+          <button class="btn btn--secondary" id="batch-refine-btn">&#9889; AI Refine</button>
+          <button class="btn btn--danger" id="batch-delete-btn">Delete Selected</button>
+          <button class="btn btn--secondary" id="batch-clear-btn">Clear All</button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- ===== RIGHT PANEL: CREATE TASK (1/3) ===== -->
+    <div class="panel panel--create">
+      <header class="header panel__header">
+        <div class="header__info">
+          <h2 class="header__title header__title--sm">Create Task</h2>
+        </div>
+      </header>
+
+      <div class="toolbar" style="padding:8px 20px">
+        <div class="toolbar__tabs">
+          <button class="toolbar__tab toolbar__tab--active" data-ct-mode="direct">Direct to Plane</button>
+          <button class="toolbar__tab" data-ct-mode="manual">By Template</button>
+          <button class="toolbar__tab" data-ct-mode="ai">By Requirement (AI)</button>
+        </div>
+      </div>
+
+      <main class="main panel__body" id="create-panel-body">
+
+        <!-- ===== MODE A: BY TEMPLATE ===== -->
+        <div id="ct-mode-manual" style="display:none">
+          ...
+        </div>
+
+        <!-- ===== MODE B: BY REQUIREMENT (AI) ===== -->
+        <div id="ct-mode-ai" style="display:none">
+          ...
+        </div>
+
+        <!-- ===== MODE C: DIRECT TO PLANE ===== -->
+        <div id="ct-mode-direct">
+          <div class="form-group">
+            <label class="form-group__label" for="dt-title">Title <span class="required">*</span></label>
+            <input class="form-group__input" type="text" id="dt-title" maxlength="200" placeholder="Issue title">
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label">Description</label>
+            <div class="editor-toolbar" id="dt-editor-toolbar">
+              <button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>
+              <button type="button" data-cmd="italic" title="Italic"><em>I</em></button>
+              <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+              <button type="button" data-cmd="strikeThrough" title="Strike"><s>S</s></button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="insertOrderedList" title="Numbered List">1.</button>
+              <button type="button" data-cmd="insertUnorderedList" title="Bullet List">•</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="formatBlock" data-arg="h3" title="Heading">H3</button>
+              <button type="button" data-cmd="formatBlock" data-arg="p" title="Paragraph">P</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="createLink" title="Link">🔗</button>
+              <button type="button" data-cmd="insertHTML" data-arg="<hr>" title="Divider">—</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="insertTable" title="Table">⊞</button>
+            </div>
+            <div class="editor-wrapper">
+              <div class="editor-content" id="dt-description-editor" contenteditable="true" data-placeholder="Describe the issue..."></div>
+            </div>
+          </div>
+
+          <div class="form-row form-row--3">
+            <div class="form-group">
+              <label class="form-group__label" for="dt-state">State</label>
+              <select class="form-group__input" id="dt-state">
+                <option value="">— Select state —</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-group__label" for="dt-priority">Priority</label>
+              <select class="form-group__input" id="dt-priority">
+                <option value="">— Select —</option>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-group__label" for="dt-cycle">Cycle</label>
+              <select class="form-group__input" id="dt-cycle">
+                <option value="">— No cycle —</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label">Assignees</label>
+            <div class="multi-select" id="dt-assignees"></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label">Labels</label>
+            <div class="multi-select" id="dt-labels"></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label">Modules</label>
+            <div class="multi-select" id="dt-modules"></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label">Parent Task</label>
+            <div class="parent-search-wrapper">
+              <input class="form-group__input" type="text" id="dt-parent-search" placeholder="Search parent task by name or key..." autocomplete="off">
+              <div class="parent-search-results" id="dt-parent-results"></div>
+            </div>
+            <input type="hidden" id="dt-parent" value="">
+          </div>
+
+          <div class="form-row form-row--2">
+            <div class="form-group">
+              <label class="form-group__label" for="dt-start-date">Start Date</label>
+              <input class="form-group__input" type="date" id="dt-start-date">
+            </div>
+            <div class="form-group">
+              <label class="form-group__label" for="dt-target-date">Target Date</label>
+              <input class="form-group__input" type="date" id="dt-target-date">
+            </div>
+          </div>
+
+          <div class="form-group" id="estimate-field">
+            <label class="form-group__label" for="dt-estimate">Estimate Points</label>
+            <select class="form-group__input" id="dt-estimate">
+              <option value="">— No estimate —</option>
+            </select>
+          </div>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <div id="ct-footer-manual" style="display:none">
+          <button class="btn btn--secondary" id="ct-save-draft">Save Draft</button>
+          <button class="btn btn--primary" id="ct-preview-btn">Submit to Plane</button>
+        </div>
+        <div id="ct-footer-ai" style="display:none">
+          <button class="btn btn--primary" id="ct-ai-generate-btn">&#9889; Generate with AI</button>
+        </div>
+        <div id="ct-footer-direct">
+          <button class="btn btn--secondary" id="dt-cancel-btn" style="display:none">&#10005; Cancel</button>
+          <button class="btn btn--primary" id="dt-submit-btn">&#128228; Submit to Plane</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ===== FETCH MODAL ===== -->
+  <div class="modal-overlay" id="fetch-modal">
+    <div class="modal">
+      <div class="modal__header">
+        <h3 class="modal__title">Search & Fetch External Task</h3>
+        <button class="modal__close" id="fetch-modal-close">&times;</button>
+      </div>
+      <div class="modal__body">
+        <div class="form-group">
+          <label class="form-group__label" for="fetch-keyword">Search Keyword or Issue Key</label>
+          <input class="form-group__input" type="text" id="fetch-keyword" placeholder="e.g. PROJ-123 or keyword">
+        </div>
+        <div class="form-group">
+          <label class="form-group__label">
+            <input type="checkbox" id="include-child-tasks" checked>
+            Include Child Tasks
+          </label>
+        </div>
+        <div class="search-results" id="search-results">
+          <p class="empty-state__text">Enter a keyword to search.</p>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--primary" id="fetch-search-btn">Search</button>
+        <button class="btn btn--secondary" id="fetch-import-btn" disabled>Import to Workspace</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../utils/templates-preset.js"></script>
+  <script src="../utils/storage.js"></script>
+  <script src="../utils/plane-api.js"></script>
+  <script src="../utils/ai-provider.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
