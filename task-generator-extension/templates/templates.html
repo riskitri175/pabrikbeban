@@ -68,7 +68,9 @@
             <div class="multi-select" id="bracket-multiselect"></div>
           </div>
 
-          <div class="form-group" id="custom-labels-group">
+          <button class="btn btn--secondary btn--sm" id="cb-open-modal" style="margin-bottom:14px">+ Add Custom Bracket</button>
+
+          <div class="form-group" id="custom-labels-group" style="display:none">
             <label class="form-group__label">Custom Labels</label>
             <div class="custom-labels">
               <div class="custom-labels__tags" id="cl-tags"></div>
@@ -84,7 +86,7 @@
             <div class="segment-list" id="segment-list"></div>
           </div>
 
-          <div class="form-group">
+          <div class="form-group" style="display:none">
             <label class="form-group__label" for="header-title">Task Title</label>
             <input class="form-group__input" type="text" id="header-title" placeholder="e.g. Create Voucher Redemption API">
           </div>
@@ -133,6 +135,34 @@
       <div class="modal__footer">
         <button class="btn btn--secondary" id="import-modal-cancel">Cancel</button>
         <button class="btn btn--primary" id="import-modal-confirm" disabled>Import</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CUSTOM BRACKET MODAL ===== -->
+  <div class="modal-overlay" id="cb-modal">
+    <div class="modal modal--sm">
+      <div class="modal__header">
+        <h3 class="modal__title">Add Custom Bracket</h3>
+        <button class="modal__close" id="cb-modal-close">&times;</button>
+      </div>
+      <div class="modal__body">
+        <div class="form-group">
+          <label class="form-group__label">Value <span class="required">*</span></label>
+          <input class="form-group__input" type="text" id="cb-value" placeholder="e.g. DEVOPS" maxlength="20" style="text-transform:uppercase;font-family:monospace">
+        </div>
+        <div class="form-group">
+          <label class="form-group__label">Label <span class="hint">(opsional)</span></label>
+          <input class="form-group__input" type="text" id="cb-label" placeholder="e.g. DevOps" maxlength="30">
+        </div>
+        <div class="form-group">
+          <label class="form-group__label">Description <span class="hint">(opsional)</span></label>
+          <textarea class="form-group__input" id="cb-desc" placeholder="Description" maxlength="100" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" id="cb-modal-cancel">Cancel</button>
+        <button class="btn btn--primary" id="cb-modal-add">Add Bracket</button>
       </div>
     </div>
   </div>

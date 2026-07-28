@@ -5,6 +5,7 @@ let builderSegments = [];
 let builderCustomLabels = [];
 let builderFields = [];
 let builderBracketOptions = [];
+let builderCustomBracketDefs = [];
 let bracketMultiSelect = null;
 let dragSrcSegment = null;
 let dragSrcField = null;
@@ -181,6 +182,7 @@ function openCreateBuilder() {
   builderCustomLabels = [];
   builderFields = [];
   builderBracketOptions = [];
+  builderCustomBracketDefs = [];
   initBracketMultiSelect();
   renderCustomLabelTags();
   renderSegments();
@@ -202,6 +204,7 @@ function openEditBuilder(id) {
   builderSegments = tpl.header?.segments ? [...tpl.header.segments] : [];
   builderCustomLabels = tpl.header?.customLabels ? [...tpl.header.customLabels] : [];
   builderBracketOptions = tpl.header?.bracketOptions ? [...tpl.header.bracketOptions] : [];
+  builderCustomBracketDefs = tpl.header?.customBracketDefs ? [...tpl.header.customBracketDefs] : [];
   builderFields = tpl.fields.map((f) => ({ ...f, options: f.options ? [...f.options] : undefined }));
 
   initBracketMultiSelect();
@@ -286,6 +289,37 @@ function initBracketMultiSelect() {
     optionEls.push({ el: div, cb, value: opt.value });
   });
 
+  builderCustomBracketDefs.forEach((def) => {
+    const div = document.createElement('div');
+    div.className = 'multi-select__option';
+    div.dataset.value = def.value;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'multi-select__option-checkbox';
+
+    const labelWrap = document.createElement('div');
+    labelWrap.className = 'multi-select__option-label';
+    const labelPart = def.label ? ` ${escapeHtml(def.label)}` : '';
+    const descPart = def.description ? `<div class="multi-select__option-desc">${escapeHtml(def.description)}</div>` : '';
+    labelWrap.innerHTML = `[${escapeHtml(def.value)}]${labelPart}${descPart}`;
+
+    div.appendChild(cb);
+    div.appendChild(labelWrap);
+
+    div.addEventListener('click', (e) => {
+      if (e.target !== cb) cb.checked = !cb.checked;
+      toggleBracketOption(def.value, cb.checked);
+    });
+
+    cb.addEventListener('change', () => {
+      toggleBracketOption(def.value, cb.checked);
+    });
+
+    dropdown.appendChild(div);
+    optionEls.push({ el: div, cb, value: def.value });
+  });
+
   container.appendChild(trigger);
   container.appendChild(dropdown);
 
@@ -358,8 +392,79 @@ function initBracketMultiSelect() {
       selected.clear();
       builderBracketOptions = [];
       updateUI();
+    },
+    addOption: (value, label, description) => {
+      const div = document.createElement('div');
+      div.className = 'multi-select__option';
+      div.dataset.value = value;
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'multi-select__option-checkbox';
+      cb.checked = true;
+
+      const labelWrap = document.createElement('div');
+      labelWrap.className = 'multi-select__option-label';
+      const labelPart = label ? ` ${escapeHtml(label)}` : '';
+      const descPart = description ? `<div class="multi-select__option-desc">${escapeHtml(description)}</div>` : '';
+      labelWrap.innerHTML = `[${escapeHtml(value)}]${labelPart}${descPart}`;
+
+      div.appendChild(cb);
+      div.appendChild(labelWrap);
+
+      div.addEventListener('click', (e) => {
+        if (e.target !== cb) cb.checked = !cb.checked;
+        toggleBracketOption(value, cb.checked);
+      });
+
+      cb.addEventListener('change', () => {
+        toggleBracketOption(value, cb.checked);
+      });
+
+      dropdown.appendChild(div);
+      optionEls.push({ el: div, cb, value });
+
+      selected.add(value);
+      builderBracketOptions = Array.from(selected);
+      builderCustomBracketDefs.push({ value, label, description });
+      syncBracketSegments();
+      updateUI();
+      updatePreview();
     }
   };
+}
+
+function openCustomBracketModal() {
+  document.getElementById('cb-modal').classList.add('modal-overlay--open');
+  document.getElementById('cb-value').value = '';
+  document.getElementById('cb-label').value = '';
+  document.getElementById('cb-desc').value = '';
+  document.getElementById('cb-value').focus();
+}
+
+function closeCustomBracketModal() {
+  document.getElementById('cb-modal').classList.remove('modal-overlay--open');
+}
+
+function addCustomBracketOption() {
+  const valueInput = document.getElementById('cb-value');
+  const labelInput = document.getElementById('cb-label');
+  const descInput = document.getElementById('cb-desc');
+  const value = valueInput.value.trim().toUpperCase();
+  const label = labelInput.value.trim();
+  const description = descInput.value.trim();
+
+  if (!value) { showToast('Value is required.', 'error'); valueInput.focus(); return; }
+  if (!/^[A-Z0-9_]+$/.test(value)) { showToast('Value must be uppercase letters, numbers, and underscores only.', 'error'); valueInput.focus(); return; }
+
+  const TARGET_BRACKETS = ['RESEARCH', 'DISCUSSION', 'BE', 'FE', 'ME', 'BUG', 'DEPLOY', 'ADJUSTMENT', 'PRIORITY', 'SEVERITY'];
+  if (TARGET_BRACKETS.includes(value)) { showToast('Value already exists as a default bracket.', 'error'); valueInput.focus(); return; }
+  if (builderCustomBracketDefs.some((d) => d.value === value)) { showToast('Custom bracket with this value already exists.', 'error'); valueInput.focus(); return; }
+
+  bracketMultiSelect.addOption(value, label, description);
+
+  closeCustomBracketModal();
+  showToast(`Custom bracket [${value}] added.`, 'success');
 }
 
 // ===== CUSTOM LABELS =====
@@ -875,7 +980,8 @@ function saveBuilder() {
   const header = {
     segments: [...builderSegments],
     customLabels: [...builderCustomLabels],
-    bracketOptions: [...builderBracketOptions]
+    bracketOptions: [...builderBracketOptions],
+    customBracketDefs: [...builderCustomBracketDefs]
   };
 
   if (editingTemplateId) {
@@ -1024,6 +1130,17 @@ function bindBuilderEvents() {
   document.getElementById('cl-add-btn').addEventListener('click', addCustomLabel);
   document.getElementById('cl-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); addCustomLabel(); }
+  });
+
+  document.getElementById('cb-open-modal').addEventListener('click', openCustomBracketModal);
+  document.getElementById('cb-modal-add').addEventListener('click', addCustomBracketOption);
+  document.getElementById('cb-modal-close').addEventListener('click', closeCustomBracketModal);
+  document.getElementById('cb-modal-cancel').addEventListener('click', closeCustomBracketModal);
+  document.getElementById('cb-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeCustomBracketModal();
+  });
+  document.getElementById('cb-desc').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addCustomBracketOption(); }
   });
 
   document.getElementById('header-title').addEventListener('input', updatePreview);
