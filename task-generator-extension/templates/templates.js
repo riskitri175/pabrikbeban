@@ -957,7 +957,6 @@ function updateTitlePreview() {
 
   const result = parts.length > 0 ? parts.join(' ') : '—';
   document.getElementById('title-result').textContent = result;
-  document.getElementById('preview-title').textContent = result;
 }
 
 function updateFormPreview() {
@@ -965,80 +964,125 @@ function updateFormPreview() {
   const resolvedFields = builderFieldKeys
     .map((key) => getFieldDef(key))
     .filter(Boolean);
-
   const enabledPlane = PLANE_FIELD_DEFS.filter((d) => builderPlaneFields[d.key]);
 
-  let html = '';
+  const titleParts = [];
+  builderSegments.forEach((seg) => {
+    if (seg.startsWith('custom:')) {
+      titleParts.push('[' + seg.replace('custom:', '') + ']');
+    } else {
+      titleParts.push('[' + seg + ']');
+    }
+  });
+  const headerTitle = document.getElementById('header-title').value.trim();
+  if (headerTitle) titleParts.push(headerTitle);
+  const generatedTitle = titleParts.length > 0 ? titleParts.join(' ') : '';
 
-  if (resolvedFields.length > 0) {
+  let html = '<div class="preview-form">';
+
+  html += '<div class="form-group">';
+  html += '<label class="form-group__label">Title <span class="required">*</span></label>';
+  html += `<input class="form-group__input" type="text" disabled value="${escapeHtml(generatedTitle)}" placeholder="Issue title">`;
+  html += '</div>';
+
+  html += '<div class="form-group">';
+  html += '<label class="form-group__label">Description <span class="required">*</span></label>';
+  html += '<div class="preview-desc-content">';
+
+  if (resolvedFields.filter((f) => f.label).length > 0) {
     html += resolvedFields
       .filter((f) => f.label)
       .map((field) => {
         const label = escapeHtml(field.label);
-        const required = field.constraint === 'mandatory' ? '<span class="required">*</span>' : '';
-        const ph = escapeHtml(field.label);
-        const desc = field.description ? `<p class="form-group__desc">${escapeHtml(field.description)}</p>` : '';
-
-        if (field.type === 'dropdown' && field.options && field.options.length > 0) {
-          const opts = field.options.map((o) => `<option>${escapeHtml(o)}</option>`).join('');
-          return `<div class="preview__field">
-            <div class="preview__field-label">${label} ${required}</div>
-            <select class="preview__field-select" disabled><option>— Select —</option>${opts}</select>
-            ${desc}
-          </div>`;
-        }
-
-        if (field.type === 'rich_text') {
-          return `<div class="preview__field">
-            <div class="preview__field-label">${label} ${required}</div>
-            <textarea class="preview__field-textarea" disabled placeholder="${ph}"></textarea>
-            ${desc}
-          </div>`;
-        }
+        const desc = field.description ? escapeHtml(field.description) : '';
 
         if (field.type === 'checkbox_list' && field.options && field.options.length > 0) {
           const checks = field.options.map((o) =>
-            `<label><input type="checkbox" disabled> ${escapeHtml(o)}</label>`
+            `<span class="preview-desc-chk"><input type="checkbox" disabled> ${escapeHtml(o)}</span>`
           ).join('');
-          return `<div class="preview__field">
-            <div class="preview__field-label">${label} ${required}</div>
-            <div class="preview__field-checkbox">${checks}</div>
-            ${desc}
+          return `<div class="preview-desc-field">
+            <span class="preview-desc-field__label">${label}</span>
+            <span class="preview-desc-field__sep">—</span>
+            <span class="preview-desc-field__text">${desc || 'Select options...'}</span>
+            <div class="preview-desc-field__checks">${checks}</div>
           </div>`;
         }
 
-        const inputType = field.type === 'url' ? 'url' : 'text';
-        return `<div class="preview__field">
-          <div class="preview__field-label">${label} ${required}</div>
-          <input class="preview__field-input" type="${inputType}" disabled placeholder="${ph}">
-          ${desc}
+        return `<div class="preview-desc-field">
+          <span class="preview-desc-field__label">${label}</span>
+          <span class="preview-desc-field__sep">—</span>
+          <span class="preview-desc-field__text">${desc || '______________________'}</span>
         </div>`;
       }).join('');
+  } else {
+    html += '<p class="preview-desc-empty">No fields selected. Add fields in Task Fields above.</p>';
   }
+
+  html += '</div>';
+  html += '</div>';
 
   if (enabledPlane.length > 0) {
     html += '<div class="preview__divider"><span>Plane Fields</span></div>';
-    html += enabledPlane.map((def) => {
-      let inputHtml;
-      if (def.type === 'select') {
-        inputHtml = `<select class="preview__field-select" disabled><option>— Select ${escapeHtml(def.label)} —</option></select>`;
-      } else if (def.type === 'multi_select') {
-        inputHtml = `<input class="preview__field-input" type="text" disabled placeholder="Select ${escapeHtml(def.label)}...">`;
-      } else if (def.type === 'search') {
-        inputHtml = `<input class="preview__field-input" type="text" disabled placeholder="Search ${escapeHtml(def.label)}...">`;
-      } else if (def.type === 'date') {
-        inputHtml = `<input class="preview__field-input" type="date" disabled>`;
-      } else if (def.type === 'estimate') {
-        inputHtml = `<input class="preview__field-input" type="number" disabled placeholder="0">`;
+
+    const stateEnabled = enabledPlane.find(d => d.key === 'state');
+    const priorityEnabled = enabledPlane.find(d => d.key === 'priority');
+    const cycleEnabled = enabledPlane.find(d => d.key === 'cycle');
+
+    if (stateEnabled || priorityEnabled || cycleEnabled) {
+      html += '<div class="form-row--3">';
+      if (stateEnabled) {
+        html += '<div class="form-group"><label class="form-group__label">State</label><select class="form-group__select" disabled><option>— Select state —</option></select></div>';
       }
-      return `<div class="preview__field">
-        <div class="preview__field-label">${escapeHtml(def.label)}</div>
-        ${inputHtml}
-      </div>`;
-    }).join('');
+      if (priorityEnabled) {
+        html += '<div class="form-group"><label class="form-group__label">Priority</label><select class="form-group__select" disabled><option>— Select —</option><option>Urgent</option><option>High</option><option>Medium</option><option>Low</option></select></div>';
+      }
+      if (cycleEnabled) {
+        html += '<div class="form-group"><label class="form-group__label">Cycle</label><select class="form-group__select" disabled><option>— No cycle —</option></select></div>';
+      }
+      html += '</div>';
+    }
+
+    const multiFields = enabledPlane.filter(d => d.key === 'assignee' || d.key === 'labels' || d.key === 'modules');
+    multiFields.forEach((def) => {
+      html += '<div class="form-group">';
+      html += `<label class="form-group__label">${escapeHtml(def.label)}</label>`;
+      html += '<div class="multi-select"><div class="multi-select__trigger"><div class="multi-select__chips"><span class="multi-select__placeholder">— Select —</span></div><span class="multi-select__arrow">&#9660;</span></div></div>';
+      html += '</div>';
+    });
+
+    const parentEnabled = enabledPlane.find(d => d.key === 'parent');
+    if (parentEnabled) {
+      html += '<div class="form-group">';
+      html += '<label class="form-group__label">Parent Task</label>';
+      html += '<div class="parent-search-wrapper"><input class="form-group__input" type="text" disabled placeholder="Search parent task by name or key..."></div>';
+      html += '</div>';
+    }
+
+    const startEnabled = enabledPlane.find(d => d.key === 'start_date');
+    const endEnabled = enabledPlane.find(d => d.key === 'end_date');
+    if (startEnabled || endEnabled) {
+      html += '<div class="form-row--2">';
+      if (startEnabled) {
+        html += '<div class="form-group"><label class="form-group__label">Start Date</label><input class="form-group__input" type="date" disabled></div>';
+      }
+      if (endEnabled) {
+        html += '<div class="form-group"><label class="form-group__label">End Date</label><input class="form-group__input" type="date" disabled></div>';
+      }
+      html += '</div>';
+    }
+
+    const estimateEnabled = enabledPlane.find(d => d.key === 'estimate_points');
+    if (estimateEnabled) {
+      html += '<div class="form-group">';
+      html += '<label class="form-group__label">Estimate Points</label>';
+      html += '<input class="form-group__input" type="number" disabled placeholder="0">';
+      html += '</div>';
+    }
   }
 
-  if (!html) {
+  html += '</div>';
+
+  if (!html.trim()) {
     container.innerHTML = '<p class="preview__empty">Select fields to see preview.</p>';
   } else {
     container.innerHTML = html;
