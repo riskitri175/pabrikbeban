@@ -6,37 +6,59 @@ let builderCustomLabels = [];
 let builderFields = [];
 let builderBracketOptions = [];
 let builderCustomBracketDefs = [];
+let builderCustomFieldDefs = [];
 let builderFieldKeys = [];
 let fieldMultiSelect = null;
 let bracketMultiSelect = null;
 let dragSrcSegment = null;
 let dragSrcFieldChip = null;
+let builderPlaneFields = {};
+
+const PLANE_FIELD_DEFS = [
+  { key: 'state', label: 'State', type: 'select' },
+  { key: 'priority', label: 'Priority', type: 'select' },
+  { key: 'cycle', label: 'Cycle', type: 'select' },
+  { key: 'assignee', label: 'Assignee(s)', type: 'multi_select' },
+  { key: 'labels', label: 'Labels', type: 'multi_select' },
+  { key: 'modules', label: 'Modules', type: 'multi_select' },
+  { key: 'parent', label: 'Parent Task', type: 'search' },
+  { key: 'start_date', label: 'Start Date', type: 'date' },
+  { key: 'end_date', label: 'End Date', type: 'date' },
+  { key: 'estimate_points', label: 'Estimate Points', type: 'estimate' }
+];
+
+const PLANE_FIELD_DEFAULTS = {};
+PLANE_FIELD_DEFS.forEach(f => { PLANE_FIELD_DEFAULTS[f.key] = true; });
 
 const STANDARD_FIELDS = [
-  { key: 'module', label: 'Module', type: 'text', constraint: 'optional', description: 'Nama modul atau fitur utama yang dikerjakan, misalnya Voucher, Dealer, Produk, atau Kasir.' },
-  { key: 'epic', label: 'Epic', type: 'text', constraint: 'optional', description: 'Epic atau fitur besar yang menjadi induk dari task.' },
-  { key: 'section', label: 'Section', type: 'text', constraint: 'optional', description: 'Bagian atau halaman dari suatu modul, misalnya List, Detail, Form, Dashboard, atau Setting.' },
-  { key: 'component', label: 'Component', type: 'text', constraint: 'optional', description: 'Komponen yang dikerjakan seperti API, Table, Modal, Button, Filter, Export, Import, dan sebagainya.' },
-  { key: 'story', label: 'Story', type: 'rich_text', constraint: 'optional', description: 'Menjelaskan kebutuhan dari sudut pandang pengguna atau proses bisnis.' },
-  { key: 'expected_result', label: 'Expected Result', type: 'rich_text', constraint: 'optional', description: 'Hasil akhir yang diharapkan setelah task selesai.' },
-  { key: 'figma_link', label: 'Link Figma', type: 'url', constraint: 'optional', description: 'Link desain UI/UX yang menjadi acuan implementasi.' },
-  { key: 'url_document', label: 'URL / Document', type: 'url', constraint: 'optional', description: 'Link PRD, BRD, FSD, Notion, Mintlify, atau dokumen pendukung lainnya.' },
-  { key: 'api', label: 'API', type: 'text', constraint: 'optional', description: 'Endpoint API yang digunakan atau akan dibuat.' },
-  { key: 'parameter', label: 'Parameter', type: 'text', constraint: 'optional', description: 'Parameter Request berupa Query, Path Variable, Header, maupun Body Request.' },
-  { key: 'environment', label: 'Environment', type: 'dropdown', constraint: 'optional', options: ['Development', 'Staging', 'Production'], description: 'Environment implementasi seperti Development, Staging, atau Production.' },
-  { key: 'estimasi_time', label: 'Estimasi Time', type: 'text', constraint: 'optional', description: 'Estimasi waktu penyelesaian task sesuai hasil diskusi tim.' },
-  { key: 'note', label: 'Note', type: 'rich_text', constraint: 'optional', description: 'Catatan tambahan yang perlu diketahui oleh tim implementasi.' },
-  { key: 'acceptance_criteria', label: 'Acceptance Criteria', type: 'rich_text', constraint: 'optional', description: 'Kriteria yang harus dipenuhi agar task dinyatakan sesuai dengan requirement.' },
-  { key: 'business_rule', label: 'Business Rule', type: 'rich_text', constraint: 'optional', description: 'Aturan bisnis yang harus diterapkan selama implementasi.' },
-  { key: 'priority', label: 'Priority', type: 'dropdown', constraint: 'optional', options: ['Critical', 'High', 'Medium', 'Low'], description: 'Tingkat prioritas task (Critical, High, Medium, Low).' },
-  { key: 'severity', label: 'Severity', type: 'dropdown', constraint: 'optional', options: ['P0', 'P1', 'P2', 'P3', '-'], description: 'Dampak teknis: P0 / P1 / P2 / P3.' },
-  { key: 'sprint', label: 'Sprint', type: 'text', constraint: 'optional', description: 'Sprint atau milestone tempat task akan dikerjakan.' },
-  { key: 'team', label: 'Team', type: 'text', constraint: 'optional', description: 'Tim yang bertanggung jawab mengerjakan task, seperti Backend, Frontend, Mobile, QA, UI/UX, atau Technical Writer.' },
-  { key: 'owner', label: 'Owner', type: 'text', constraint: 'optional', description: 'PIC yang bertanggung jawab terhadap penyelesaian task.' },
-  { key: 'dependency', label: 'Dependency', type: 'text', constraint: 'optional', description: 'Ketergantungan terhadap task, sistem, atau tim lain sebelum task dapat dikerjakan atau diselesaikan.' }
+  { key: 'MODULE', label: 'Module', type: 'text', constraint: 'optional', description: 'Nama modul atau fitur utama yang dikerjakan, misalnya Voucher, Dealer, Produk, atau Kasir.' },
+  { key: 'EPIC', label: 'Epic', type: 'text', constraint: 'optional', description: 'Epic atau fitur besar yang menjadi induk dari task.' },
+  { key: 'SECTION', label: 'Section', type: 'text', constraint: 'optional', description: 'Bagian atau halaman dari suatu modul, misalnya List, Detail, Form, Dashboard, atau Setting.' },
+  { key: 'COMPONENT', label: 'Component', type: 'text', constraint: 'optional', description: 'Komponen yang dikerjakan seperti API, Table, Modal, Button, Filter, Export, Import, dan sebagainya.' },
+  { key: 'STORY', label: 'Story', type: 'rich_text', constraint: 'optional', description: 'Menjelaskan kebutuhan dari sudut pandang pengguna atau proses bisnis.' },
+  { key: 'EXPECTED_RESULT', label: 'Expected Result', type: 'rich_text', constraint: 'optional', description: 'Hasil akhir yang diharapkan setelah task selesai.' },
+  { key: 'FIGMA_LINK', label: 'Link Figma', type: 'url', constraint: 'optional', description: 'Link desain UI/UX yang menjadi acuan implementasi.' },
+  { key: 'URL_DOCUMENT', label: 'URL / Document', type: 'url', constraint: 'optional', description: 'Link PRD, BRD, FSD, Notion, Mintlify, atau dokumen pendukung lainnya.' },
+  { key: 'API', label: 'API', type: 'text', constraint: 'optional', description: 'Endpoint API yang digunakan atau akan dibuat.' },
+  { key: 'PARAMETER', label: 'Parameter', type: 'text', constraint: 'optional', description: 'Parameter Request berupa Query, Path Variable, Header, maupun Body Request.' },
+  { key: 'ENVIRONMENT', label: 'Environment', type: 'dropdown', constraint: 'optional', options: ['Development', 'Staging', 'Production'], description: 'Environment implementasi seperti Development, Staging, atau Production.' },
+  { key: 'ESTIMASI_TIME', label: 'Estimasi Time', type: 'text', constraint: 'optional', description: 'Estimasi waktu penyelesaian task sesuai hasil diskusi tim.' },
+  { key: 'NOTE', label: 'Note', type: 'rich_text', constraint: 'optional', description: 'Catatan tambahan yang perlu diketahui oleh tim implementasi.' },
+  { key: 'ACCEPTANCE_CRITERIA', label: 'Acceptance Criteria', type: 'rich_text', constraint: 'optional', description: 'Kriteria yang harus dipenuhi agar task dinyatakan sesuai dengan requirement.' },
+  { key: 'BUSINESS_RULE', label: 'Business Rule', type: 'rich_text', constraint: 'optional', description: 'Aturan bisnis yang harus diterapkan selama implementasi.' },
+  { key: 'PRIORITY', label: 'Priority', type: 'dropdown', constraint: 'optional', options: ['Critical', 'High', 'Medium', 'Low'], description: 'Tingkat prioritas task (Critical, High, Medium, Low).' },
+  { key: 'SEVERITY', label: 'Severity', type: 'dropdown', constraint: 'optional', options: ['P0', 'P1', 'P2', 'P3', '-'], description: 'Dampak teknis: P0 / P1 / P2 / P3.' },
+  { key: 'SPRINT', label: 'Sprint', type: 'text', constraint: 'optional', description: 'Sprint atau milestone tempat task akan dikerjakan.' },
+  { key: 'TEAM', label: 'Team', type: 'text', constraint: 'optional', description: 'Tim yang bertanggung jawab mengerjakan task, seperti Backend, Frontend, Mobile, QA, UI/UX, atau Technical Writer.' },
+  { key: 'OWNER', label: 'Owner', type: 'text', constraint: 'optional', description: 'PIC yang bertanggung jawab terhadap penyelesaian task.' },
+  { key: 'DEPENDENCY', label: 'Dependency', type: 'text', constraint: 'optional', description: 'Ketergantungan terhadap task, sistem, atau tim lain sebelum task dapat dikerjakan atau diselesaikan.' }
 ];
 const STANDARD_FIELD_MAP = {};
 STANDARD_FIELDS.forEach(f => { STANDARD_FIELD_MAP[f.key] = f; });
+
+function getFieldDef(key) {
+  return STANDARD_FIELD_MAP[key] || builderCustomFieldDefs.find(d => d.key === key);
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadTemplates();
@@ -208,11 +230,14 @@ function openCreateBuilder() {
   builderFieldKeys = [];
   builderBracketOptions = [];
   builderCustomBracketDefs = [];
+  builderCustomFieldDefs = [];
+  builderPlaneFields = { ...PLANE_FIELD_DEFAULTS };
   initBracketMultiSelect();
   initFieldMultiSelect();
   renderCustomLabelTags();
   renderSegments();
   renderFieldChips();
+  renderPlaneFieldToggles();
   updatePreview();
   showBuilderView();
 }
@@ -231,7 +256,12 @@ function openEditBuilder(id) {
   builderCustomLabels = tpl.header?.customLabels ? [...tpl.header.customLabels] : [];
   builderBracketOptions = tpl.header?.bracketOptions ? [...tpl.header.bracketOptions] : [];
   builderCustomBracketDefs = tpl.header?.customBracketDefs ? [...tpl.header.customBracketDefs] : [];
-  builderFieldKeys = tpl.fieldKeys || tpl.header?.fieldKeys || [];
+  builderCustomFieldDefs = tpl.header?.customFieldDefs ? [...tpl.header.customFieldDefs] : [];
+  builderFieldKeys = (tpl.fieldKeys || tpl.header?.fieldKeys || []).map(k => {
+    const upper = k.toUpperCase();
+    return STANDARD_FIELD_MAP[upper] ? upper : k;
+  });
+  builderPlaneFields = tpl.header?.planeFields ? { ...PLANE_FIELD_DEFAULTS, ...tpl.header.planeFields } : { ...PLANE_FIELD_DEFAULTS };
 
   initBracketMultiSelect();
   if (bracketMultiSelect && builderBracketOptions.length > 0) {
@@ -244,6 +274,7 @@ function openEditBuilder(id) {
   renderCustomLabelTags();
   renderSegments();
   renderFieldChips();
+  renderPlaneFieldToggles();
   updatePreview();
   showBuilderView();
 }
@@ -268,7 +299,7 @@ function renderFieldChips() {
   container.innerHTML = '';
 
   builderFieldKeys.forEach((key, idx) => {
-    const field = STANDARD_FIELD_MAP[key];
+    const field = getFieldDef(key);
     if (!field) return;
     const chip = document.createElement('div');
     chip.className = 'segment-chip segment-chip--field';
@@ -360,6 +391,37 @@ function initFieldMultiSelect() {
     optionEls.push({ el: div, cb, value: opt.key });
   });
 
+  builderCustomFieldDefs.forEach((def) => {
+    const div = document.createElement('div');
+    div.className = 'multi-select__option';
+    div.dataset.value = def.key;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'multi-select__option-checkbox';
+
+    const labelWrap = document.createElement('div');
+    labelWrap.className = 'multi-select__option-label';
+    const labelPart = def.label ? ` ${escapeHtml(def.label)}` : '';
+    const descPart = def.description ? `<div class="multi-select__option-desc">${escapeHtml(def.description)}</div>` : '';
+    labelWrap.innerHTML = `<span class="multi-select__option-key">${escapeHtml(def.key)}</span>${labelPart}${descPart}`;
+
+    div.appendChild(cb);
+    div.appendChild(labelWrap);
+
+    div.addEventListener('click', (e) => {
+      if (e.target !== cb) cb.checked = !cb.checked;
+      toggleFieldOption(def.key, cb.checked);
+    });
+
+    cb.addEventListener('change', () => {
+      toggleFieldOption(def.key, cb.checked);
+    });
+
+    dropdown.appendChild(div);
+    optionEls.push({ el: div, cb, value: def.key });
+  });
+
   container.appendChild(trigger);
   container.appendChild(dropdown);
 
@@ -381,7 +443,7 @@ function initFieldMultiSelect() {
       chips.appendChild(placeholder);
     } else {
       selected.forEach((key) => {
-        const field = STANDARD_FIELD_MAP[key];
+        const field = getFieldDef(key);
         const label = field ? field.label : key;
         const chip = document.createElement('span');
         chip.className = 'multi-select__chip';
@@ -434,6 +496,44 @@ function initFieldMultiSelect() {
       selected.clear();
       builderFieldKeys = [];
       updateUI();
+    },
+    addOption: (def) => {
+      const div = document.createElement('div');
+      div.className = 'multi-select__option';
+      div.dataset.value = def.key;
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'multi-select__option-checkbox';
+      cb.checked = true;
+
+      const labelWrap = document.createElement('div');
+      labelWrap.className = 'multi-select__option-label';
+      const labelPart = def.label ? ` ${escapeHtml(def.label)}` : '';
+      const descPart = def.description ? `<div class="multi-select__option-desc">${escapeHtml(def.description)}</div>` : '';
+      labelWrap.innerHTML = `<span class="multi-select__option-key">${escapeHtml(def.key)}</span>${labelPart}${descPart}`;
+
+      div.appendChild(cb);
+      div.appendChild(labelWrap);
+
+      div.addEventListener('click', (e) => {
+        if (e.target !== cb) cb.checked = !cb.checked;
+        toggleFieldOption(def.key, cb.checked);
+      });
+
+      cb.addEventListener('change', () => {
+        toggleFieldOption(def.key, cb.checked);
+      });
+
+      dropdown.appendChild(div);
+      optionEls.push({ el: div, cb, value: def.key });
+
+      selected.add(def.key);
+      builderFieldKeys = Array.from(selected);
+      builderCustomFieldDefs.push(def);
+      syncFieldSegments();
+      updateUI();
+      updatePreview();
     }
   };
 }
@@ -677,6 +777,70 @@ function addCustomBracketOption() {
   showToast(`Custom bracket [${value}] added.`, 'success');
 }
 
+// ===== CUSTOM FIELD MODAL =====
+
+function openCustomFieldModal() {
+  document.getElementById('cf-modal').classList.add('modal-overlay--open');
+  document.getElementById('cf-value').value = '';
+  document.getElementById('cf-label').value = '';
+  document.getElementById('cf-desc').value = '';
+  document.getElementById('cf-value').focus();
+}
+
+function closeCustomFieldModal() {
+  document.getElementById('cf-modal').classList.remove('modal-overlay--open');
+}
+
+function addCustomFieldOption() {
+  const valueInput = document.getElementById('cf-value');
+  const labelInput = document.getElementById('cf-label');
+  const descInput = document.getElementById('cf-desc');
+  const value = valueInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
+  const label = labelInput.value.trim();
+  const description = descInput.value.trim();
+
+  if (!value) { showToast('Key is required.', 'error'); valueInput.focus(); return; }
+  if (!/^[A-Z][A-Z0-9_]*$/.test(value)) { showToast('Key must start with a letter and contain only uppercase letters, numbers, and underscores.', 'error'); valueInput.focus(); return; }
+
+  if (STANDARD_FIELD_MAP[value]) { showToast('A standard field with this key already exists.', 'error'); valueInput.focus(); return; }
+  if (builderCustomFieldDefs.some((d) => d.key === value)) { showToast('A custom field with this key already exists.', 'error'); valueInput.focus(); return; }
+
+  fieldMultiSelect.addOption({ key: value, label, description });
+
+  closeCustomFieldModal();
+  showToast(`Custom field "${value}" added.`, 'success');
+}
+
+// ===== PLANE FIELDS =====
+
+function renderPlaneFieldToggles() {
+  const container = document.getElementById('plane-field-toggles');
+  container.innerHTML = '';
+
+  PLANE_FIELD_DEFS.forEach((def) => {
+    const item = document.createElement('label');
+    item.className = 'chip-checklist__item';
+    if (!builderPlaneFields[def.key]) {
+      item.classList.add('chip-checklist__item--off');
+    }
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!builderPlaneFields[def.key];
+    cb.addEventListener('change', () => {
+      builderPlaneFields[def.key] = cb.checked;
+      item.classList.toggle('chip-checklist__item--off', !cb.checked);
+      updatePreview();
+    });
+
+    item.appendChild(cb);
+    const span = document.createElement('span');
+    span.textContent = def.label;
+    item.appendChild(span);
+    container.appendChild(item);
+  });
+}
+
 // ===== CUSTOM LABELS =====
 
 function renderCustomLabelTags() {
@@ -799,57 +963,86 @@ function updateTitlePreview() {
 function updateFormPreview() {
   const container = document.getElementById('preview-form');
   const resolvedFields = builderFieldKeys
-    .map((key) => STANDARD_FIELD_MAP[key])
+    .map((key) => getFieldDef(key))
     .filter(Boolean);
 
-  if (resolvedFields.length === 0) {
-    container.innerHTML = '<p class="preview__empty">Select fields to see preview.</p>';
-    return;
+  const enabledPlane = PLANE_FIELD_DEFS.filter((d) => builderPlaneFields[d.key]);
+
+  let html = '';
+
+  if (resolvedFields.length > 0) {
+    html += resolvedFields
+      .filter((f) => f.label)
+      .map((field) => {
+        const label = escapeHtml(field.label);
+        const required = field.constraint === 'mandatory' ? '<span class="required">*</span>' : '';
+        const ph = escapeHtml(field.label);
+        const desc = field.description ? `<p class="form-group__desc">${escapeHtml(field.description)}</p>` : '';
+
+        if (field.type === 'dropdown' && field.options && field.options.length > 0) {
+          const opts = field.options.map((o) => `<option>${escapeHtml(o)}</option>`).join('');
+          return `<div class="preview__field">
+            <div class="preview__field-label">${label} ${required}</div>
+            <select class="preview__field-select" disabled><option>— Select —</option>${opts}</select>
+            ${desc}
+          </div>`;
+        }
+
+        if (field.type === 'rich_text') {
+          return `<div class="preview__field">
+            <div class="preview__field-label">${label} ${required}</div>
+            <textarea class="preview__field-textarea" disabled placeholder="${ph}"></textarea>
+            ${desc}
+          </div>`;
+        }
+
+        if (field.type === 'checkbox_list' && field.options && field.options.length > 0) {
+          const checks = field.options.map((o) =>
+            `<label><input type="checkbox" disabled> ${escapeHtml(o)}</label>`
+          ).join('');
+          return `<div class="preview__field">
+            <div class="preview__field-label">${label} ${required}</div>
+            <div class="preview__field-checkbox">${checks}</div>
+            ${desc}
+          </div>`;
+        }
+
+        const inputType = field.type === 'url' ? 'url' : 'text';
+        return `<div class="preview__field">
+          <div class="preview__field-label">${label} ${required}</div>
+          <input class="preview__field-input" type="${inputType}" disabled placeholder="${ph}">
+          ${desc}
+        </div>`;
+      }).join('');
   }
 
-  container.innerHTML = resolvedFields
-    .filter((f) => f.label)
-    .map((field) => {
-      const label = escapeHtml(field.label);
-      const required = field.constraint === 'mandatory' ? '<span class="required">*</span>' : '';
-      const ph = escapeHtml(field.label);
-      const desc = field.description ? `<p class="form-group__desc">${escapeHtml(field.description)}</p>` : '';
-
-      if (field.type === 'dropdown' && field.options && field.options.length > 0) {
-        const opts = field.options.map((o) => `<option>${escapeHtml(o)}</option>`).join('');
-        return `<div class="preview__field">
-          <div class="preview__field-label">${label} ${required}</div>
-          <select class="preview__field-select" disabled><option>— Select —</option>${opts}</select>
-          ${desc}
-        </div>`;
+  if (enabledPlane.length > 0) {
+    html += '<div class="preview__divider"><span>Plane Fields</span></div>';
+    html += enabledPlane.map((def) => {
+      let inputHtml;
+      if (def.type === 'select') {
+        inputHtml = `<select class="preview__field-select" disabled><option>— Select ${escapeHtml(def.label)} —</option></select>`;
+      } else if (def.type === 'multi_select') {
+        inputHtml = `<input class="preview__field-input" type="text" disabled placeholder="Select ${escapeHtml(def.label)}...">`;
+      } else if (def.type === 'search') {
+        inputHtml = `<input class="preview__field-input" type="text" disabled placeholder="Search ${escapeHtml(def.label)}...">`;
+      } else if (def.type === 'date') {
+        inputHtml = `<input class="preview__field-input" type="date" disabled>`;
+      } else if (def.type === 'estimate') {
+        inputHtml = `<input class="preview__field-input" type="number" disabled placeholder="0">`;
       }
-
-      if (field.type === 'rich_text') {
-        return `<div class="preview__field">
-          <div class="preview__field-label">${label} ${required}</div>
-          <textarea class="preview__field-textarea" disabled placeholder="${ph}"></textarea>
-          ${desc}
-        </div>`;
-      }
-
-      if (field.type === 'checkbox_list' && field.options && field.options.length > 0) {
-        const checks = field.options.map((o) =>
-          `<label><input type="checkbox" disabled> ${escapeHtml(o)}</label>`
-        ).join('');
-        return `<div class="preview__field">
-          <div class="preview__field-label">${label} ${required}</div>
-          <div class="preview__field-checkbox">${checks}</div>
-          ${desc}
-        </div>`;
-      }
-
-      const inputType = field.type === 'url' ? 'url' : 'text';
       return `<div class="preview__field">
-        <div class="preview__field-label">${label} ${required}</div>
-        <input class="preview__field-input" type="${inputType}" disabled placeholder="${ph}">
-        ${desc}
+        <div class="preview__field-label">${escapeHtml(def.label)}</div>
+        ${inputHtml}
       </div>`;
     }).join('');
+  }
+
+  if (!html) {
+    container.innerHTML = '<p class="preview__empty">Select fields to see preview.</p>';
+  } else {
+    container.innerHTML = html;
+  }
 }
 
 // ===== SAVE =====
@@ -877,7 +1070,9 @@ function saveBuilder() {
     segments: [...builderSegments],
     customLabels: [...builderCustomLabels],
     bracketOptions: [...builderBracketOptions],
-    customBracketDefs: [...builderCustomBracketDefs]
+    customBracketDefs: [...builderCustomBracketDefs],
+    customFieldDefs: [...builderCustomFieldDefs],
+    planeFields: { ...builderPlaneFields }
   };
 
   if (editingTemplateId) {
@@ -1037,6 +1232,17 @@ function bindBuilderEvents() {
   });
   document.getElementById('cb-desc').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); addCustomBracketOption(); }
+  });
+
+  document.getElementById('cf-open-modal').addEventListener('click', openCustomFieldModal);
+  document.getElementById('cf-modal-add').addEventListener('click', addCustomFieldOption);
+  document.getElementById('cf-modal-close').addEventListener('click', closeCustomFieldModal);
+  document.getElementById('cf-modal-cancel').addEventListener('click', closeCustomFieldModal);
+  document.getElementById('cf-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeCustomFieldModal();
+  });
+  document.getElementById('cf-desc').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addCustomFieldOption(); }
   });
 
   document.getElementById('header-title').addEventListener('input', updatePreview);

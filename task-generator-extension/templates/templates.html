@@ -101,10 +101,18 @@
             <label class="form-group__label">Standard Fields <span class="hint">(pilih field yang akan muncul)</span></label>
             <div class="multi-select" id="field-multiselect"></div>
           </div>
+          <button class="btn btn--secondary btn--sm" id="cf-open-modal" style="margin-bottom:14px">+ Add Custom Field</button>
           <div class="form-group">
             <label class="form-group__label">Field Format <span class="hint">(drag to reorder)</span></label>
             <div class="segment-list" id="field-segment-list"></div>
           </div>
+        </section>
+
+        <!-- SECTION: PLANE FIELDS -->
+        <section class="builder-section">
+          <h3 class="builder-section__title">Plane Fields</h3>
+          <p class="builder-section__desc">Pilih field bawaan Plane yang akan muncul di form.</p>
+          <div class="chip-checklist" id="plane-field-toggles"></div>
         </section>
       </div>
 
@@ -169,6 +177,34 @@
       <div class="modal__footer">
         <button class="btn btn--secondary" id="cb-modal-cancel">Cancel</button>
         <button class="btn btn--primary" id="cb-modal-add">Add Bracket</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CUSTOM FIELD MODAL ===== -->
+  <div class="modal-overlay" id="cf-modal">
+    <div class="modal modal--sm">
+      <div class="modal__header">
+        <h3 class="modal__title">Add Custom Field</h3>
+        <button class="modal__close" id="cf-modal-close">&times;</button>
+      </div>
+      <div class="modal__body">
+        <div class="form-group">
+          <label class="form-group__label">Key <span class="required">*</span></label>
+          <input class="form-group__input" type="text" id="cf-value" placeholder="e.g. design_review" maxlength="30" style="text-transform:uppercase;font-family:monospace">
+        </div>
+        <div class="form-group">
+          <label class="form-group__label">Label <span class="hint">(opsional)</span></label>
+          <input class="form-group__input" type="text" id="cf-label" placeholder="e.g. Design Review" maxlength="30">
+        </div>
+        <div class="form-group">
+          <label class="form-group__label">Description <span class="hint">(opsional)</span></label>
+          <textarea class="form-group__input" id="cf-desc" placeholder="Deskripsi field" maxlength="100" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" id="cf-modal-cancel">Cancel</button>
+        <button class="btn btn--primary" id="cf-modal-add">Add Field</button>
       </div>
     </div>
   </div>

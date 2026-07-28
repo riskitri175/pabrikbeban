@@ -393,6 +393,44 @@ body {
   color: #1d4ed8;
 }
 
+.chip-checklist__item--off {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.chip-checklist__item--off input[type="checkbox"] {
+  accent-color: #cbd5e1;
+}
+
+.builder-section__desc {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 12px;
+}
+
+/* ===== PREVIEW DIVIDER ===== */
+
+.preview__divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.preview__divider::before,
+.preview__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
 /* ===== CUSTOM LABELS ===== */
 
 .custom-labels__tags {
@@ -501,6 +539,7 @@ body {
 .segment-chip--severity { border-color: #f59e0b; background: #fffbeb; color: #b45309; }
 .segment-chip--priority { border-color: #8b5cf6; background: #f5f3ff; color: #6d28d9; }
 .segment-chip--custom { border-color: #06b6d4; background: #ecfeff; color: #0e7490; }
+.segment-chip--field { border-color: #8b5cf6; background: #f5f3ff; color: #6d28d9; }
 
 .segment-chip__label { font-size: 12px; }
 
@@ -896,6 +935,15 @@ body {
 
 .multi-select__option-label {
   flex: 1;
+}
+
+.multi-select__option-key {
+  font-family: monospace;
+  font-size: 12px;
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: #475569;
 }
 
 .multi-select__option-desc {
