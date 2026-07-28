@@ -124,41 +124,79 @@
             </select>
           </div>
 
-          <div id="ct-header-components"></div>
-
           <div class="form-group">
             <label class="form-group__label" for="ct-title">Title <span class="required">*</span></label>
             <input class="form-group__input" type="text" id="ct-title" maxlength="200" placeholder="Issue title">
           </div>
 
           <div class="form-group">
-            <label class="form-group__label" for="ct-story">Story / Description <span class="required">*</span></label>
-            <textarea class="form-group__textarea" id="ct-story" rows="3" placeholder="Describe the issue..."></textarea>
+            <label class="form-group__label" for="ct-story-editor">Story / Description <span class="required">*</span></label>
+            <div class="editor-toolbar" id="ct-story-toolbar">
+              <button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>
+              <button type="button" data-cmd="italic" title="Italic"><em>I</em></button>
+              <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+              <button type="button" data-cmd="strikeThrough" title="Strike"><s>S</s></button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="insertOrderedList" title="Numbered List">1.</button>
+              <button type="button" data-cmd="insertUnorderedList" title="Bullet List">•</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="formatBlock" data-arg="h3" title="Heading">H3</button>
+              <button type="button" data-cmd="formatBlock" data-arg="p" title="Paragraph">P</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="createLink" title="Link">🔗</button>
+              <button type="button" data-cmd="insertHTML" data-arg="<hr>" title="Divider">—</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="insertTable" title="Table">⊞</button>
+            </div>
+            <div class="editor-wrapper">
+              <div class="editor-content" id="ct-story-editor" contenteditable="true" data-placeholder="Describe the issue..."></div>
+            </div>
           </div>
 
           <div class="form-group">
             <label class="form-group__label">Acceptance Criteria <span class="required">*</span></label>
-            <div id="ct-ac-list"></div>
-            <button class="btn btn--sm btn--secondary" id="ct-add-ac" style="margin-top:6px">+ Add AC</button>
+            <div class="editor-toolbar" id="ct-ac-toolbar">
+              <button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>
+              <button type="button" data-cmd="italic" title="Italic"><em>I</em></button>
+              <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+              <button type="button" data-cmd="strikeThrough" title="Strike"><s>S</s></button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="insertOrderedList" title="Numbered List">1.</button>
+              <button type="button" data-cmd="insertUnorderedList" title="Bullet List">•</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="createLink" title="Link">🔗</button>
+              <button type="button" data-cmd="insertTable" title="Table">⊞</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="insertHTML" data-arg="<hr>" title="Divider">—</button>
+            </div>
+            <div class="editor-wrapper">
+              <div class="editor-content" id="ct-ac-editor" contenteditable="true" data-placeholder="Enter acceptance criteria..."></div>
+            </div>
           </div>
 
           <div class="form-group">
             <label class="form-group__label">Definition of Done</label>
-            <div id="ct-dod-list"></div>
+            <div class="editor-toolbar" id="ct-dod-toolbar">
+              <button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>
+              <button type="button" data-cmd="italic" title="Italic"><em>I</em></button>
+              <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+              <button type="button" data-cmd="strikeThrough" title="Strike"><s>S</s></button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="insertOrderedList" title="Numbered List">1.</button>
+              <button type="button" data-cmd="insertUnorderedList" title="Bullet List">•</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="insertTable" title="Table">⊞</button>
+              <button type="button" data-cmd="createLink" title="Link">🔗</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="insertHTML" data-arg="<hr>" title="Divider">—</button>
+            </div>
+            <div class="editor-wrapper">
+              <div class="editor-content" id="ct-dod-editor" contenteditable="true" data-placeholder="Enter definition of done..."></div>
+            </div>
           </div>
 
-          <div id="ct-custom-fields"></div>
-
-          <div id="ct-parent-group" class="form-group">
-            <label class="form-group__label">Parent Task</label>
-            <select class="form-group__input" id="ct-parent">
-              <option value="">— No parent —</option>
-            </select>
-          </div>
-
-          <div class="form-group" style="margin-top:12px">
-            <label class="form-group__label">Title Preview</label>
-            <div class="title-preview" id="ct-full-title">—</div>
+          <div id="ct-parent-group" style="display:none">
+            <input type="hidden" id="ct-parent" value="">
           </div>
         </div>
 

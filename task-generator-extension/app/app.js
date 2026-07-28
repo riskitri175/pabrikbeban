@@ -87,7 +87,7 @@ async function loadTemplateOptions() {
   }
 }
 
-function onTemplateChange() {
+async function onTemplateChange() {
   const templateSelect = document.getElementById('ct-template');
   if (!templateSelect) return;
   const templateId = templateSelect.value;
@@ -99,147 +99,20 @@ function onTemplateChange() {
   }
 
   if (modeManual) modeManual.style.display = 'block';
-  renderHeaderComponents(templateId);
-  updateFullTitle();
-  renderDoD();
-  renderCustomFields(templateId);
+  renderDoD(templateId);
 }
 
-async function renderHeaderComponents(templateId) {
-  const container = document.getElementById('ct-header-components');
-  if (!container) return;
-  container.innerHTML = '';
-
-  const templates = await Storage.getTemplates();
-  const tpl = (templates || []).find((t) => t.id === templateId);
-  const header = tpl?.header;
-
-  if (!header || !header.segments || header.segments.length === 0) {
-    container.innerHTML = `
-      <div class="form-group">
-        <label class="form-group__label" for="ct-bracket">Bracket <span class="required">*</span></label>
-        <select class="form-group__input" id="ct-bracket">
-          <option value="">— Select bracket —</option>
-          ${BRACKET_OPTIONS.map((b) => `<option value="${b}">[${b}]</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-group__label" for="ct-severity">Severity</label>
-          <select class="form-group__input" id="ct-severity">
-            <option value="">— Select —</option>
-            ${SEVERITY_OPTIONS.map((s) => `<option value="${s}">${s}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-group__label" for="ct-priority">Priority</label>
-          <select class="form-group__input" id="ct-priority">
-            <option value="">— Select —</option>
-            ${PRIORITY_OPTIONS.map((p) => `<option value="${p}">${p}</option>`).join('')}
-          </select>
-        </div>
-      </div>`;
-    container.querySelector('#ct-bracket').addEventListener('change', () => { updateFullTitle(); renderDoD(); });
-    container.querySelector('#ct-severity').addEventListener('change', updateFullTitle);
-    container.querySelector('#ct-priority').addEventListener('change', updateFullTitle);
-    return;
-  }
-
-  const hasSegment = (name) => header.segments.includes(name);
-
-  if (hasSegment('bracket')) {
-    container.innerHTML += `
-      <div class="form-group">
-        <label class="form-group__label">Bracket (multi-select)</label>
-        <select class="form-group__input" id="ct-bracket" multiple size="6">
-          ${BRACKET_OPTIONS_FULL.map((b) => `<option value="${b.value}">[${b.value}] ${escapeHtml(b.label)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-group__label" for="ct-severity">Severity</label>
-          <select class="form-group__input" id="ct-severity">
-            ${SEVERITY_OPTIONS.map((s) => `<option value="${s}">${s}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-group__label" for="ct-priority">Priority</label>
-          <select class="form-group__input" id="ct-priority">
-            ${PRIORITY_OPTIONS.map((p) => `<option value="${p}">${p}</option>`).join('')}
-          </select>
-        </div>
-      </div>`;
-  }
-
-  const customLabels = header.customLabels || [];
-  const activeLabels = header.segments.filter((s) => s.startsWith('custom:')).map((s) => s.replace('custom:', ''));
-  if (activeLabels.length > 0) {
-    container.innerHTML += `
-      <div class="form-group">
-        <label class="form-group__label">Custom Labels</label>
-        ${activeLabels.map((label) =>
-          `<label class="dod-item"><input type="checkbox" class="ct-custom-label" data-label="${escapeHtml(label)}"> [${escapeHtml(label)}]</label>`
-        ).join('')}
-      </div>`;
-  }
-
-  container.querySelectorAll('#ct-bracket').forEach((el) => {
-    el.addEventListener('change', () => { updateFullTitle(); renderDoD(); });
-  });
-  container.querySelectorAll('#ct-severity, #ct-priority').forEach((el) => {
-    el.addEventListener('change', updateFullTitle);
-  });
-  container.querySelectorAll('.ct-custom-label').forEach((el) => {
-    el.addEventListener('change', updateFullTitle);
-  });
-}
-
-function updateFullTitle() {
-  const title = document.getElementById('ct-title').value.trim();
-  const parts = [];
-
-  const bracketSelect = document.getElementById('ct-bracket');
-  if (bracketSelect) {
-    if (bracketSelect.multiple) {
-      const selected = Array.from(bracketSelect.selectedOptions).map((o) => o.value);
-      selected.forEach((v) => parts.push('[' + v + ']'));
-    } else {
-      const v = bracketSelect.value;
-      if (v) parts.push('[' + v + ']');
-    }
-  }
-
-  document.querySelectorAll('.ct-custom-label:checked').forEach((cb) => {
-    parts.push('[' + cb.dataset.label + ']');
-  });
-
-  const severityEl = document.getElementById('ct-severity');
-  const priorityEl = document.getElementById('ct-priority');
-  if (severityEl) {
-    const sv = severityEl.value;
-    const pv = priorityEl ? priorityEl.value : '';
-    if (sv && pv) parts.push('[' + sv + '][' + pv + ']');
-    else if (sv) parts.push('[' + sv + ']');
-    else if (pv) parts.push('[' + pv + ']');
-  }
-
-  if (title) parts.push(title);
-
-  document.getElementById('ct-full-title').textContent = parts.length > 0 ? parts.join(' ') : '—';
-}
-
-function renderDoD() {
-  const bracketEl = document.getElementById('ct-bracket');
+async function renderDoD(templateId) {
   const list = document.getElementById('ct-dod-list');
   if (!list) return;
 
   let brackets = [];
-  if (bracketEl) {
-    if (bracketEl.multiple) {
-      brackets = Array.from(bracketEl.selectedOptions).map((o) => o.value);
-    } else {
-      const v = bracketEl.value;
-      if (v) brackets = [v];
+  if (templateId) {
+    const templates = await Storage.getTemplates();
+    const tpl = (templates || []).find((t) => t.id === templateId);
+    const header = tpl?.header;
+    if (header?.segments) {
+      brackets = header.segments.filter((s) => !s.startsWith('custom:') && !['severity', 'priority'].includes(s) && s !== 'bracket');
     }
   }
 
@@ -254,131 +127,224 @@ function renderDoD() {
     });
   });
 
-  list.innerHTML = items.map(
-    (item) => `<label class="dod-item"><input type="checkbox" checked> ${escapeHtml(item)}</label>`
-  ).join('');
-}
+  const editor = document.getElementById('ct-dod-editor');
+  if (!editor) return;
 
-async function renderCustomFields(templateId) {
-  const container = document.getElementById('ct-custom-fields');
-  const templates = await Storage.getTemplates();
-  const tpl = (templates || []).find((t) => t.id === templateId);
-  if (!tpl || !tpl.fields || tpl.fields.length === 0) {
-    container.innerHTML = '';
-    return;
+  if (items.length > 0) {
+    editor.innerHTML = '<ul>' + items.map((item) => `<li>${escapeHtml(item)}</li>`).join('') + '</ul>';
   }
-
-  container.innerHTML = tpl.fields.map((field) => {
-    const label = escapeHtml(field.label);
-    const key = field.key;
-    const ph = escapeHtml(field.placeholder || field.label);
-    const desc = field.description ? `<p class="form-group__hint">${escapeHtml(field.description)}</p>` : '';
-    const defVal = field.defaultValue ? escapeHtml(field.defaultValue) : '';
-
-    if (field.type === 'dropdown' && field.options) {
-      const opts = field.options.map((o) => `<option value="${escapeHtml(o)}" ${o === field.defaultValue ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
-      return `
-        <div class="form-group">
-          <label class="form-group__label" for="cf-${key}">${label}</label>
-          <select class="form-group__input" id="cf-${key}" data-field-key="${key}">
-            <option value="">— Select —</option>
-            ${opts}
-          </select>
-          ${desc}
-        </div>`;
-    }
-
-    if (field.type === 'rich_text') {
-      return `
-        <div class="form-group">
-          <label class="form-group__label" for="cf-${key}">${label}</label>
-          <textarea class="form-group__textarea" id="cf-${key}" data-field-key="${key}" rows="2" placeholder="${ph}">${defVal}</textarea>
-          ${desc}
-        </div>`;
-    }
-
-    if (field.type === 'checkbox_list') {
-      return `
-        <div class="form-group">
-          <label class="form-group__label">${label}</label>
-          <div id="cf-${key}">${(field.options || []).map((o) =>
-            `<label class="dod-item"><input type="checkbox" data-field-key="${key}" value="${escapeHtml(o)}"> ${escapeHtml(o)}</label>`
-          ).join('')}</div>
-          ${desc}
-        </div>`;
-    }
-
-    return `
-      <div class="form-group">
-        <label class="form-group__label" for="cf-${key}">${label}</label>
-        <input class="form-group__input" type="${field.type === 'url' ? 'url' : 'text'}" id="cf-${key}" data-field-key="${key}" placeholder="${ph}" value="${defVal}">
-        ${desc}
-      </div>`;
-  }).join('');
 }
 
-function addAcRow() {
-  const container = document.getElementById('ct-ac-list');
-  const row = document.createElement('div');
-  row.className = 'ac-row';
-  row.innerHTML = `
-    <input class="ac-row__input" type="text" placeholder="e.g. User can redeem voucher">
-    <button class="ac-row__remove" title="Remove">&times;</button>
-  `;
-  row.querySelector('.ac-row__remove').addEventListener('click', () => row.remove());
-  container.appendChild(row);
-}
+function addAcRow() {}
 
 function collectFormData() {
   const templateSelect = document.getElementById('ct-template');
   if (!templateSelect) return null;
   const templateId = templateSelect.value;
-  const bracketEl = document.getElementById('ct-bracket');
-  const severityEl = document.getElementById('ct-severity');
-  const priorityEl = document.getElementById('ct-priority');
-  let bracket = '', bracketArr = [];
-  if (bracketEl) {
-    if (bracketEl.multiple) {
-      bracketArr = Array.from(bracketEl.selectedOptions).map((o) => o.value);
-      bracket = bracketArr.join(',');
-    } else {
-      bracket = bracketEl.value;
-      bracketArr = bracket ? [bracket] : [];
-    }
-  }
-  const severity = severityEl ? severityEl.value : '';
-  const priority = priorityEl ? priorityEl.value : '';
   const title = document.getElementById('ct-title').value.trim();
-  const story = document.getElementById('ct-story').value.trim();
+  const storyEl = document.getElementById('ct-story-editor');
+  const story = storyEl ? storyEl.innerHTML : '';
+  const acEl = document.getElementById('ct-ac-editor');
+  const acceptanceCriteriaHtml = acEl ? acEl.innerHTML : '';
+  const dodEl = document.getElementById('ct-dod-editor');
+  const dodHtml = dodEl ? dodEl.innerHTML : '';
 
-  const acInputs = document.querySelectorAll('#ct-ac-list .ac-row__input');
-  const acceptanceCriteria = Array.from(acInputs).map((inp) => inp.value.trim()).filter(Boolean);
+  return { templateId, title, story, acceptanceCriteriaHtml, dodHtml };
+}
 
-  const dodChecked = [];
-  document.querySelectorAll('#ct-dod-list .dod-item input[type="checkbox"]').forEach((cb) => {
-    if (cb.checked) dodChecked.push(cb.parentElement.textContent.trim());
-  });
+async function generateFromManualForm(data, mode) {
+  if (!data.templateId) { showToast('Pilih template terlebih dahulu.', 'error'); return; }
+  if (!data.title) { showToast('Masukkan judul task.', 'error'); return; }
+  if (!data.story || data.story === '<br>') { showToast('Masukkan story/deskripsi task.', 'error'); return; }
 
-  const customFields = {};
-  document.querySelectorAll('#ct-custom-fields [data-field-key]').forEach((el) => {
-    const key = el.dataset.fieldKey;
-    if (el.type === 'checkbox') {
-      if (!customFields[key]) customFields[key] = [];
-      if (el.checked) customFields[key].push(el.value);
-    } else {
-      customFields[key] = el.value;
+  const plainAc = data.acceptanceCriteriaHtml ? data.acceptanceCriteriaHtml.replace(/<[^>]*>/g, '').trim() : '';
+  if (!plainAc) { showToast('Tulis minimal 1 Acceptance Criteria.', 'error'); return; }
+
+  const btn = document.getElementById(mode === 'draft' ? 'ct-save-draft' : 'ct-preview-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
+
+  try {
+    const templates = await Storage.getTemplates();
+    const tpl = (templates || []).find((t) => t.id === data.templateId);
+    if (!tpl) { showToast('Template tidak ditemukan.', 'error'); return; }
+
+    const tplFields = tpl.fields || [];
+    const tplFieldKeys = tplFields.map((f) => f.key);
+
+    const segments = tpl.header?.segments || [];
+    const bracketOptions = tpl.header?.bracketOptions || [];
+    const customLabels = (tpl.header?.customLabels || []).filter((l) =>
+      segments.includes('custom:' + l)
+    );
+    const expectedResult = tpl.header?.expectedResult || '';
+    const fieldSchema = tplFields.map((f) => {
+      let desc = `${f.label} (${f.type}${f.constraint ? ', ' + f.constraint : ''})`;
+      if (f.options && f.options.length > 0) desc += ` [${f.options.join(', ')}]`;
+      if (f.description) desc += ` — ${f.description}`;
+      return '- ' + f.key + ': ' + desc;
+    }).join('\n');
+
+    const parentEl = document.getElementById('ct-parent');
+    const parentId = parentEl ? parentEl.value : null;
+    const activeBatch = await Storage.getActiveBatch();
+    const parentTask = parentId ? (activeBatch?.tasks || []).find((t) => t.id === parentId) : null;
+
+    const prompt = `Generate structured software engineering tasks from the following user input.
+
+Template format context:
+- Title segments (brackets): ${bracketOptions.join(', ') || 'None'}
+- Custom labels: ${customLabels.join(', ') || 'None'}
+- Segments: ${segments.join(', ')}
+
+Expected result / guidance:
+${expectedResult || 'Not specified'}
+${parentTask ? `\nThis task is a CHILD of "${parentTask.full_title || parentTask.title}". Ensure it follows the parent scope.\n` : ''}
+
+Task fields to fill (for each generated task, determine appropriate values):
+${fieldSchema || 'No custom fields defined.'}
+
+User input:
+Title: ${data.title}
+Story / Description (HTML):
+${data.story}
+
+Acceptance Criteria (HTML):
+${data.acceptanceCriteriaHtml}
+
+Definition of Done (HTML):
+${data.dodHtml}
+
+IMPORTANT RULES:
+- BREAK DOWN the user story, acceptance criteria, and DoD to fill values for each task field listed above
+- Automatically BREAK DOWN the user input into MULTIPLE single-responsibility tasks
+- For example "CRUD" must be split into separate Create, Read, Update, Delete tasks
+- For each functional requirement, consider ALL necessary layers: Backend API, Database / Slicing, Frontend consume
+- Each task must cover ONLY ONE responsibility (single-responsibility micro-task)
+- Generate minimum 2 tasks, maximum 8 tasks
+- Use the Story, Acceptance Criteria, and DoD as foundations but enrich them with technical details, edge cases, and comprehensive coverage
+
+CRITICAL — FIELD VALUES:
+- You MUST fill EVERY field in the "field_values" object for EACH task (parent AND children)
+- Do NOT leave ANY field empty — generate appropriate content for every field
+- Even if the user's input doesn't explicitly mention a field, derive it intelligently from context
+- EXAMPLES:
+   - EXPECTED_RESULT: write a DETAILED expected outcome (3-5 sentences describing the end-to-end expected behavior, including success criteria and user impact)
+   - STORY: always include the user story content relevant to this task
+   - PARAMETER: derive API parameters from the described functionality
+   - FIGMA_LINK: extract Figma/design URL from description, or write "—" if none
+   - URL_DOCUMENT: extract doc URL from description, or write "—" if none
+   - API: derive the endpoint URL from context
+- For dropdown fields, ONLY use values from the allowed options list.
+- For checkbox_list fields, use zero or more values from the allowed options list.
+
+PARENT-CHILD STRUCTURE RULES:
+- Automatically create parent-child STRUCTURE when tasks are logically related
+- Example: "Create Voucher API" (BE, backend) → parent, "Consume Create Voucher API" (FE, frontend) → child
+- Every "Slicing" or backend/data-layer task MUST have at least one child "Consume" task (frontend integration)
+- Group related UI, API, and data tasks under a single parent
+- Maximum depth: 1 level (parent → children, no grandchildren)
+- If a task naturally splits into sub-tasks, list them as children of that task
+
+Return ONLY a valid JSON array (no markdown, no backticks):
+[
+  {
+    "title": "[BE] [P1][High] Action-oriented title",
+    "story": "Detailed user story and technical description...",
+    "acceptance_criteria": ["item1", "item2", "..."],
+    "dod": ["item1", "item2", "..."],
+    "field_values": {
+      "MODULE": "value from story",
+      "API": "/api/v1/...",
+      "FIGMA_LINK": "https://..."
+    },
+    "children": [
+      {
+        "title": "[FE] Consume task",
+        "story": "...",
+        "acceptance_criteria": ["..."],
+        "dod": ["..."],
+        "field_values": { ... }
+      }
+    ]
+  }
+]`;
+
+    const raw = await AIProvider.generate(prompt);
+    const results = JSON.parse(raw.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim());
+    const tasksArray = Array.isArray(results) ? results : [results];
+
+    const batch = activeBatch || {
+      batch_id: 'batch_' + Date.now(),
+      source_prd: '',
+      tasks: []
+    };
+
+    function flattenTasks(items, parentId) {
+      const flat = [];
+      let seq = 0;
+      items.forEach((item) => {
+        const children = item.children || [];
+        delete item.children;
+        const taskId = 'task_' + Date.now() + '_' + seq++;
+        const emptyFields = {};
+        tplFieldKeys.forEach((k) => { emptyFields[k] = ''; });
+        const payload = { ...emptyFields };
+        if (item.field_values) {
+          Object.assign(payload, item.field_values);
+        }
+        payload.story = item.story || data.story || '';
+        payload.acceptance_criteria = item.acceptance_criteria || data.acceptanceCriteriaHtml || '';
+        payload.dod = item.dod || data.dodHtml || '';
+        if ('STORY' in emptyFields && payload.story) payload.STORY = payload.story;
+        if ('ACCEPTANCE_CRITERIA' in emptyFields && payload.acceptance_criteria) payload.ACCEPTANCE_CRITERIA = payload.acceptance_criteria;
+        if ('EXPECTED_RESULT' in emptyFields && !payload.EXPECTED_RESULT) {
+          const storyText = data.story ? data.story.replace(/<[^>]*>/g, '').trim() : '';
+          payload.EXPECTED_RESULT = storyText ? `Hasil yang diharapkan: ${storyText.substring(0, 500)}. Semua skenario berjalan sesuai spesifikasi, mencakup success case dan error handling. Pengguna mendapatkan feedback yang jelas dan sistem berperilaku sesuai yang diharapkan.` : '—';
+        }
+        if ('PARAMETER' in emptyFields && !payload.PARAMETER) payload.PARAMETER = '—';
+        if ('FIGMA_LINK' in emptyFields && !payload.FIGMA_LINK && data.story) {
+          const figmaMatch = data.story.match(/https:\/\/(?:www\.)?figma\.com\/[^\s<"']+/);
+          if (figmaMatch) payload.FIGMA_LINK = figmaMatch[0];
+        }
+        if ('URL_DOCUMENT' in emptyFields && !payload.URL_DOCUMENT && data.story) {
+          const docMatch = data.story.match(/https:\/\/(?:docs\.google\.com|drive\.google\.com|notion\.so|mirro\.com|miro\.com|github\.com)\/[^\s<"']+/);
+          if (docMatch) payload.URL_DOCUMENT = docMatch[0];
+        }
+        tplFieldKeys.forEach((k) => {
+          const v = payload[k];
+          if (v === undefined || v === null || v === '') payload[k] = '—';
+        });
+        flat.push({
+          id: taskId,
+          title: item.title || data.title,
+          full_title: item.title || data.title,
+          parent_id: parentId || null,
+          is_selected: true,
+          sync_status: mode === 'draft' ? 'draft' : 'pending',
+          payload,
+          _fieldOrder: tplFieldKeys
+        });
+        if (children.length > 0) {
+          flat.push(...flattenTasks(children, taskId));
+        }
+      });
+      return flat;
     }
-  });
 
-  const parentId = document.getElementById('ct-parent').value || null;
-  const fullTitle = document.getElementById('ct-full-title').textContent;
+    const flattened = flattenTasks(tasksArray, parentId);
+    flattened.forEach((t) => batch.tasks.push(t));
+    batch.fieldOrder = tplFieldKeys;
+    await Storage.saveActiveBatch(batch);
 
-  return {
-    templateId, bracket, bracketArr, severity, priority, title,
-    fullTitle, story, acceptanceCriteria,
-    dod: dodChecked, customFields,
-    parentId
-  };
+    showToast(`Task ${mode === 'draft' ? 'saved as draft' : 'generated'}! Check batch for review.`, 'success');
+    resetForm();
+    switchMode('batch');
+    await loadBatch();
+  } catch (err) {
+    showToast(`Gagal generate: ${err.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = mode === 'draft' ? 'Save Draft' : 'Submit to Plane'; }
+  }
 }
 
 // ===== TOAST =====
@@ -405,48 +371,8 @@ const PRIORITY_MAP = { 'Critical': 'urgent', 'High': 'high', 'Medium': 'medium',
 
 async function submitTask() {
   const data = collectFormData();
-  const submitBtn = document.getElementById('ct-preview-btn');
-
-  if (!data.templateId) { showToast('Pilih template terlebih dahulu.', 'error'); return; }
-  if (!data.title) { showToast('Masukkan judul task.', 'error'); return; }
-  if (!data.story) { showToast('Masukkan story/deskripsi task.', 'error'); return; }
-  if (data.acceptanceCriteria.length === 0) { showToast('Tambah minimal 1 Acceptance Criteria.', 'error'); return; }
-
-  const confirmed = confirm(`Submit task berikut ke Plane?\n\n${data.fullTitle}\n\nAC: ${data.acceptanceCriteria.length} item\nDoD: ${data.dod.length} item`);
-  if (!confirmed) return;
-
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Submitting...';
-
-  try {
-    const taskForHtml = {
-      payload: {
-        story: data.story,
-        acceptance_criteria: data.acceptanceCriteria,
-        dod: data.dod,
-        ...data.customFields
-      }
-    };
-
-    const payload = {
-      name: data.fullTitle,
-      description_html: PlaneAPI._buildDescriptionHtml(taskForHtml),
-      priority: PRIORITY_MAP[data.priority] || 'medium'
-    };
-
-    if (data.parentId) payload.parent = data.parentId;
-
-    const result = await PlaneAPI.createIssue(payload);
-
-    showToast(`Task berhasil dibuat! ID: ${result.sequence_id || result.id}`, 'success');
-
-    resetForm();
-  } catch (err) {
-    showToast(`Gagal submit: ${err.message}`, 'error');
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Submit to Plane';
-  }
+  if (!data) return;
+  await generateFromManualForm(data, 'submit');
 }
 
 function resetForm() {
@@ -456,18 +382,12 @@ function resetForm() {
   if (modeManual) modeManual.style.display = 'none';
   const titleEl = document.getElementById('ct-title');
   if (titleEl) titleEl.value = '';
-  const storyEl = document.getElementById('ct-story');
-  if (storyEl) storyEl.value = '';
-  const acList = document.getElementById('ct-ac-list');
-  if (acList) acList.innerHTML = '';
-  const dodList = document.getElementById('ct-dod-list');
-  if (dodList) dodList.innerHTML = '';
-  const customFields = document.getElementById('ct-custom-fields');
-  if (customFields) customFields.innerHTML = '';
-  const fullTitle = document.getElementById('ct-full-title');
-  if (fullTitle) fullTitle.textContent = '—';
-  const parentEl = document.getElementById('ct-parent');
-  if (parentEl) parentEl.value = '';
+  const storyEditor = document.getElementById('ct-story-editor');
+  if (storyEditor) storyEditor.innerHTML = '';
+  const acEditor = document.getElementById('ct-ac-editor');
+  if (acEditor) acEditor.innerHTML = '';
+  const dodEditor = document.getElementById('ct-dod-editor');
+  if (dodEditor) dodEditor.innerHTML = '';
 }
 
 // ===== AI MODE (MODE B) =====
@@ -1248,38 +1168,8 @@ async function populateParentDropdown() {
 
 async function saveDraft() {
   const data = collectFormData();
-  if (!data.templateId) { showToast('Pilih template terlebih dahulu.', 'error'); return; }
-  if (!data.title) { showToast('Masukkan judul task.', 'error'); return; }
-
-  const task = {
-    id: 'task_draft_' + Date.now(),
-    parent_id: data.parentId,
-    bracket: data.bracket,
-    severity: data.severity,
-    priority: data.priority,
-    title: data.title,
-    full_title: data.fullTitle,
-    is_selected: true,
-    payload: {
-      story: data.story,
-      acceptance_criteria: data.acceptanceCriteria,
-      dod: data.dod,
-      ...data.customFields
-    },
-    sync_status: 'draft'
-  };
-
-  const batch = await Storage.getActiveBatch() || {
-    batch_id: 'batch_' + Date.now(),
-    source_prd: '',
-    tasks: []
-  };
-  batch.tasks.push(task);
-  await Storage.saveActiveBatch(batch);
-  showToast('Task saved as draft.', 'success');
-  resetForm();
-  switchMode('batch');
-  await loadBatch();
+  if (!data) return;
+  await generateFromManualForm(data, 'draft');
 }
 
 // ===== FETCH EXTERNAL MODAL =====
@@ -1804,15 +1694,17 @@ function switchMode(mode) {
 async function loadBatch() {
   const batch = await Storage.getActiveBatch();
   const tasks = batch?.tasks || [];
-  renderBatchTasks(tasks);
+  const fo = batch?.fieldOrder;
+  if (fo) {
+    tasks.forEach((t) => { if (!t._fieldOrder) t._fieldOrder = fo; });
+  }
+  renderBatchTasks(tasks, fo);
   await populateParentDropdown();
 }
 
-function renderTaskCard(task) {
+function renderTaskCard(task, fieldOrder) {
   const syncClass = `sync-badge--${task.sync_status || 'draft'}`;
   const priorityLower = (task.priority || '').toLowerCase();
-  const ac = task.payload?.acceptance_criteria || [];
-  const dod = task.payload?.dod || [];
   const isChild = !!task.parent_id;
 
   return `
@@ -1832,20 +1724,23 @@ function renderTaskCard(task) {
         </div>
       </div>
       <div class="task-card__body">
-        <div class="task-card__section">
-          <div class="task-card__section-title">Story</div>
-          <div class="task-card__section-text">${escapeHtml(task.payload?.story || '—')}</div>
-        </div>
-        ${ac.length ? `
-        <div class="task-card__section">
-          <div class="task-card__section-title">Acceptance Criteria (${ac.length})</div>
-          <ul class="task-card__section-list">${ac.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul>
-        </div>` : ''}
-        ${dod.length ? `
-        <div class="task-card__section">
-          <div class="task-card__section-title">Definition of Done (${dod.length})</div>
-          <ul class="task-card__section-list">${dod.map(d => `<li>${escapeHtml(d)}</li>`).join('')}</ul>
-        </div>` : ''}
+        ${(() => {
+          const payload = task.payload || {};
+          const order = fieldOrder || task._fieldOrder;
+          let entries = Object.entries(payload).filter(([k]) => !['story', 'acceptance_criteria', 'dod'].includes(k) && k !== '0');
+          if (order && order.length > 0) {
+            const orderMap = {};
+            order.forEach((k, i) => { orderMap[k] = i; });
+            entries.sort((a, b) => (orderMap[a[0]] ?? 999) - (orderMap[b[0]] ?? 999));
+          }
+          if (entries.length === 0) return '';
+          return `<div class="task-card__section">
+            <div class="task-card__section-title">Task Fields</div>
+            <div class="task-card__field-values">${entries.map(([k, v]) =>
+              `<div class="task-card__field-row"><span class="task-card__field-key">${escapeHtml(k)}</span><span class="task-card__field-value">${escapeHtml(Array.isArray(v) ? v.join(', ') : String(v))}</span></div>`
+            ).join('')}</div>
+          </div>`;
+        })()}
         <div class="task-card__refine">
           <input class="task-card__refine-input" type="text" placeholder="AI refine instruction for this task...">
           <button class="btn btn--primary btn--sm task-card__refine-btn">Refine</button>
@@ -1854,7 +1749,7 @@ function renderTaskCard(task) {
     </div>`;
 }
 
-function renderBatchTasks(tasks) {
+function renderBatchTasks(tasks, fieldOrder) {
   const list = document.getElementById('batch-task-list');
   const emptyState = document.getElementById('empty-state');
   const count = tasks.length;
@@ -1874,19 +1769,19 @@ function renderBatchTasks(tasks) {
 
   let html = '';
   parents.forEach((parent, pi) => {
-    html += renderTaskCard(parent);
+    html += renderTaskCard(parent, fieldOrder);
 
     const childList = children.filter(c => c.parent_id === parent.id);
     if (childList.length > 0) {
       childList.forEach((child) => {
-        html += renderTaskCard(child);
+        html += renderTaskCard(child, fieldOrder);
       });
     }
   });
 
   const orphans = children.filter(c => !parents.some(p => p.id === c.parent_id));
   orphans.forEach((child) => {
-    html += renderTaskCard(child);
+    html += renderTaskCard(child, fieldOrder);
   });
 
   list.innerHTML = html;
@@ -2109,6 +2004,55 @@ function escapeHtml(text) {
 
 // ===== BIND EVENTS =====
 
+function initManualEditors() {
+  const insertTable = (cols, rows) => {
+    if (cols < 1 || rows < 1) return;
+    let html = '<table><tbody>';
+    for (let r = 0; r < rows; r++) {
+      html += '<tr>';
+      for (let c = 0; c < cols; c++) html += '<td><br></td>';
+      html += '</tr>';
+    }
+    html += '</tbody></table><br>';
+    return html;
+  };
+
+  const initEditor = (toolbarId, editorId) => {
+    const toolbar = document.getElementById(toolbarId);
+    const editor = document.getElementById(editorId);
+    if (!toolbar || !editor) return;
+
+    toolbar.querySelectorAll('button[data-cmd]').forEach((btn) => {
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const cmd = btn.dataset.cmd;
+        const arg = btn.dataset.arg;
+
+        if (cmd === 'createLink') {
+          const url = prompt('Enter URL:');
+          if (url) document.execCommand('createLink', false, url);
+        } else if (cmd === 'formatBlock' && arg) {
+          document.execCommand('formatBlock', false, arg);
+        } else if (cmd === 'insertHTML' && arg) {
+          document.execCommand('insertHTML', false, arg);
+        } else if (cmd === 'insertTable') {
+          const cols = parseInt(prompt('Columns:', '3'), 10) || 3;
+          const rows = parseInt(prompt('Rows:', '3'), 10) || 3;
+          const tableHtml = insertTable(cols, rows);
+          if (tableHtml) document.execCommand('insertHTML', false, tableHtml);
+        } else {
+          document.execCommand(cmd, false, null);
+        }
+        editor.focus();
+      });
+    });
+  };
+
+  initEditor('ct-story-toolbar', 'ct-story-editor');
+  initEditor('ct-ac-toolbar', 'ct-ac-editor');
+  initEditor('ct-dod-toolbar', 'ct-dod-editor');
+}
+
 function bindEvents() {
   document.getElementById('fetch-external-btn').addEventListener('click', openFetchModal);
   document.getElementById('fetch-modal-close').addEventListener('click', closeFetchModal);
@@ -2160,10 +2104,8 @@ function bindEvents() {
   const templateSelect = document.getElementById('ct-template');
   if (templateSelect) templateSelect.addEventListener('change', onTemplateChange);
   const titleEl = document.getElementById('ct-title');
-  if (titleEl) titleEl.addEventListener('input', updateFullTitle);
 
-  const addAcEl = document.getElementById('ct-add-ac');
-  if (addAcEl) addAcEl.addEventListener('click', addAcRow);
+  initManualEditors();
   const previewBtn = document.getElementById('ct-preview-btn');
   if (previewBtn) previewBtn.addEventListener('click', submitTask);
   const saveDraftBtn = document.getElementById('ct-save-draft');

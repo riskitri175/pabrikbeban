@@ -187,7 +187,8 @@ function duplicateTemplate(id) {
     name: 'Copy of ' + tpl.name,
     category: tpl.category || 'General',
     header: tpl.header ? JSON.parse(JSON.stringify(tpl.header)) : undefined,
-    fields: JSON.parse(JSON.stringify(tpl.fields))
+    fields: JSON.parse(JSON.stringify(tpl.fields)),
+    fieldKeys: tpl.fieldKeys ? [...tpl.fieldKeys] : undefined
   };
   currentTemplates.push(clone);
   Storage.saveTemplates(currentTemplates);
@@ -199,7 +200,7 @@ function exportTemplate(id) {
   closeAllDropdowns();
   const tpl = currentTemplates.find((t) => t.id === id);
   if (!tpl) return;
-  const data = { name: tpl.name, header: tpl.header, fields: tpl.fields };
+  const data = { name: tpl.name, header: tpl.header, fields: tpl.fields, fieldKeys: tpl.fieldKeys || undefined };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1105,9 +1106,9 @@ function saveBuilder() {
 
   const fields = builderFieldKeys
     .map((key) => {
-      const f = STANDARD_FIELD_MAP[key];
+      const f = STANDARD_FIELD_MAP[key] || builderCustomFieldDefs.find(d => d.key === key);
       if (!f) return null;
-      const out = { key: f.key, label: f.label, type: f.type, constraint: f.constraint };
+      const out = { key: f.key, label: f.label, type: f.type || 'text', constraint: f.constraint || 'optional' };
       if (f.options && f.options.length > 0 && (f.type === 'dropdown' || f.type === 'checkbox_list')) {
         out.options = [...f.options];
       }
@@ -1212,7 +1213,8 @@ async function confirmImport() {
       placeholder: f.placeholder || undefined,
       defaultValue: f.defaultValue || undefined,
       description: f.description || undefined
-    }))
+    })),
+    fieldKeys: importData.fieldKeys || importData.fields.map((f) => f.key)
   };
   currentTemplates.push(tpl);
   await Storage.saveTemplates(currentTemplates);

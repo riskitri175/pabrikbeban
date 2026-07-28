@@ -786,6 +786,35 @@ body {
   background: #cbd5e1;
 }
 
+.task-card__field-values {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.task-card__field-row {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 1px 0;
+}
+
+.task-card__field-key {
+  font-weight: 600;
+  color: #475569;
+  min-width: 120px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.task-card__field-value {
+  color: #1a1a2e;
+  word-break: break-word;
+  flex: 1;
+}
+
 .task-card__empty {
   text-align: center;
   padding: 32px 16px;
