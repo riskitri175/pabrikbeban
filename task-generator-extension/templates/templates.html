@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Template Manager — AI Task Generator</title>
+  <link rel="stylesheet" href="templates.css">
+</head>
+<body>
+
+  <!-- ===== VIEW 1: TEMPLATE LIST ===== -->
+  <div class="app" id="view-list">
+    <header class="header">
+      <div class="header__left">
+        <button class="btn btn--back" id="back-to-app" title="Back to Task Generator">&larr; Task Generator</button>
+        <h1 class="header__title">Template Manager</h1>
+        <p class="header__subtitle">Create and manage task templates</p>
+      </div>
+      <div class="header__right">
+        <button class="btn btn--secondary btn--sm" id="import-template-btn">Import JSON</button>
+        <button class="btn btn--primary" id="create-template-btn">+ Create Template</button>
+      </div>
+    </header>
+
+    <div class="search-bar">
+      <input class="search-bar__input" type="text" id="search-input" placeholder="Search templates by name...">
+    </div>
+
+    <main class="main">
+      <div class="template-grid" id="template-grid"></div>
+      <div class="empty-state" id="empty-state" style="display:none">
+        <div class="empty-state__icon">&#128203;</div>
+        <p class="empty-state__text">Belum ada template.<br>Klik <strong>+ Create Template</strong> untuk memulai.</p>
+      </div>
+      <div class="empty-state" id="no-results" style="display:none">
+        <div class="empty-state__icon">&#128269;</div>
+        <p class="empty-state__text">Tidak ada template yang cocok.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== VIEW 2: BUILDER (Split Panel) ===== -->
+  <div class="builder" id="view-builder" style="display:none">
+    <header class="builder__topbar">
+      <button class="btn btn--back" id="builder-back">&larr; Back to Templates</button>
+      <h2 class="builder__topbar-title" id="builder-title">Create Template</h2>
+      <div class="builder__topbar-actions">
+        <button class="btn btn--secondary" id="builder-cancel">Cancel</button>
+        <button class="btn btn--primary" id="builder-save">Save Template</button>
+      </div>
+    </header>
+
+    <div class="builder__name-bar">
+      <label class="builder__name-label" for="tpl-name">Template Name</label>
+      <input class="builder__name-input" type="text" id="tpl-name" maxlength="50" placeholder="e.g. Backend API Implementation">
+    </div>
+
+    <div class="builder__split">
+      <!-- LEFT PANEL -->
+      <div class="builder__left">
+
+        <!-- SECTION: HEADER -->
+        <section class="builder-section">
+          <h3 class="builder-section__title">Header (Title Format)</h3>
+
+          <div class="form-group" id="bracket-options-group">
+            <label class="form-group__label">Bracket Options <span class="hint">(pilih bracket yang tersedia)</span></label>
+            <div class="multi-select" id="bracket-multiselect"></div>
+          </div>
+
+          <div class="form-group" id="custom-labels-group">
+            <label class="form-group__label">Custom Labels</label>
+            <div class="custom-labels">
+              <div class="custom-labels__tags" id="cl-tags"></div>
+              <div class="custom-labels__add">
+                <input class="custom-labels__input" type="text" id="cl-input" placeholder="e.g. CANARY" maxlength="30">
+                <button class="btn btn--secondary btn--sm" id="cl-add-btn">+ Add</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label">Title Format <span class="hint">(drag to reorder)</span></label>
+            <div class="segment-list" id="segment-list"></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label" for="header-title">Task Title</label>
+            <input class="form-group__input" type="text" id="header-title" placeholder="e.g. Create Voucher Redemption API">
+          </div>
+
+          <div class="title-result" id="title-result">—</div>
+        </section>
+
+        <!-- SECTION: TASK FIELDS -->
+        <section class="builder-section">
+          <h3 class="builder-section__title">Task Fields</h3>
+          <div id="field-list"></div>
+          <button class="btn btn--secondary btn--sm" id="add-field-btn">+ Add Field</button>
+        </section>
+      </div>
+
+      <!-- RIGHT PANEL: PREVIEW -->
+      <div class="builder__right">
+        <div class="preview">
+          <h3 class="preview__heading">Form Preview</h3>
+          <div class="preview__title" id="preview-title">—</div>
+          <div class="preview__form" id="preview-form">
+            <p class="preview__empty">Add fields to see preview.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== IMPORT MODAL ===== -->
+  <div class="modal-overlay" id="import-modal">
+    <div class="modal modal--sm">
+      <div class="modal__header">
+        <h3 class="modal__title">Import Template</h3>
+        <button class="modal__close" id="import-modal-close">&times;</button>
+      </div>
+      <div class="modal__body">
+        <div class="form-group">
+          <label class="form-group__label">Select JSON File</label>
+          <input type="file" id="import-file-input" accept=".json" class="form-group__input">
+        </div>
+        <div id="import-preview" style="display:none">
+          <p class="import-preview__label">Preview:</p>
+          <div class="import-preview__content" id="import-preview-content"></div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" id="import-modal-cancel">Cancel</button>
+        <button class="btn btn--primary" id="import-modal-confirm" disabled>Import</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="../utils/templates-preset.js"></script>
+  <script src="../utils/storage.js"></script>
+  <script src="templates.js"></script>
+</body>
+</html>

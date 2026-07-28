@@ -99,25 +99,130 @@ function onTemplateChange() {
   }
 
   if (modeManual) modeManual.style.display = 'block';
+  renderHeaderComponents(templateId);
   updateFullTitle();
   renderDoD();
   renderCustomFields(templateId);
 }
 
+async function renderHeaderComponents(templateId) {
+  const container = document.getElementById('ct-header-components');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const templates = await Storage.getTemplates();
+  const tpl = (templates || []).find((t) => t.id === templateId);
+  const header = tpl?.header;
+
+  if (!header || !header.segments || header.segments.length === 0) {
+    container.innerHTML = `
+      <div class="form-group">
+        <label class="form-group__label" for="ct-bracket">Bracket <span class="required">*</span></label>
+        <select class="form-group__input" id="ct-bracket">
+          <option value="">— Select bracket —</option>
+          ${BRACKET_OPTIONS.map((b) => `<option value="${b}">[${b}]</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-group__label" for="ct-severity">Severity</label>
+          <select class="form-group__input" id="ct-severity">
+            <option value="">— Select —</option>
+            ${SEVERITY_OPTIONS.map((s) => `<option value="${s}">${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-group__label" for="ct-priority">Priority</label>
+          <select class="form-group__input" id="ct-priority">
+            <option value="">— Select —</option>
+            ${PRIORITY_OPTIONS.map((p) => `<option value="${p}">${p}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+    container.querySelector('#ct-bracket').addEventListener('change', () => { updateFullTitle(); renderDoD(); });
+    container.querySelector('#ct-severity').addEventListener('change', updateFullTitle);
+    container.querySelector('#ct-priority').addEventListener('change', updateFullTitle);
+    return;
+  }
+
+  const hasSegment = (name) => header.segments.includes(name);
+
+  if (hasSegment('bracket')) {
+    container.innerHTML += `
+      <div class="form-group">
+        <label class="form-group__label">Bracket (multi-select)</label>
+        <select class="form-group__input" id="ct-bracket" multiple size="6">
+          ${BRACKET_OPTIONS_FULL.map((b) => `<option value="${b.value}">[${b.value}] ${escapeHtml(b.label)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-group__label" for="ct-severity">Severity</label>
+          <select class="form-group__input" id="ct-severity">
+            ${SEVERITY_OPTIONS.map((s) => `<option value="${s}">${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-group__label" for="ct-priority">Priority</label>
+          <select class="form-group__input" id="ct-priority">
+            ${PRIORITY_OPTIONS.map((p) => `<option value="${p}">${p}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+  }
+
+  const customLabels = header.customLabels || [];
+  const activeLabels = header.segments.filter((s) => s.startsWith('custom:')).map((s) => s.replace('custom:', ''));
+  if (activeLabels.length > 0) {
+    container.innerHTML += `
+      <div class="form-group">
+        <label class="form-group__label">Custom Labels</label>
+        ${activeLabels.map((label) =>
+          `<label class="dod-item"><input type="checkbox" class="ct-custom-label" data-label="${escapeHtml(label)}"> [${escapeHtml(label)}]</label>`
+        ).join('')}
+      </div>`;
+  }
+
+  container.querySelectorAll('#ct-bracket').forEach((el) => {
+    el.addEventListener('change', () => { updateFullTitle(); renderDoD(); });
+  });
+  container.querySelectorAll('#ct-severity, #ct-priority').forEach((el) => {
+    el.addEventListener('change', updateFullTitle);
+  });
+  container.querySelectorAll('.ct-custom-label').forEach((el) => {
+    el.addEventListener('change', updateFullTitle);
+  });
+}
+
 function updateFullTitle() {
-  const bracketEl = document.getElementById('ct-bracket');
+  const title = document.getElementById('ct-title').value.trim();
+  const parts = [];
+
+  const bracketSelect = document.getElementById('ct-bracket');
+  if (bracketSelect) {
+    if (bracketSelect.multiple) {
+      const selected = Array.from(bracketSelect.selectedOptions).map((o) => o.value);
+      selected.forEach((v) => parts.push('[' + v + ']'));
+    } else {
+      const v = bracketSelect.value;
+      if (v) parts.push('[' + v + ']');
+    }
+  }
+
+  document.querySelectorAll('.ct-custom-label:checked').forEach((cb) => {
+    parts.push('[' + cb.dataset.label + ']');
+  });
+
   const severityEl = document.getElementById('ct-severity');
   const priorityEl = document.getElementById('ct-priority');
-  const bracket = bracketEl ? bracketEl.value : '';
-  const severity = severityEl ? severityEl.value : '';
-  const priority = priorityEl ? priorityEl.value : '';
-  const title = document.getElementById('ct-title').value.trim();
+  if (severityEl) {
+    const sv = severityEl.value;
+    const pv = priorityEl ? priorityEl.value : '';
+    if (sv && pv) parts.push('[' + sv + '][' + pv + ']');
+    else if (sv) parts.push('[' + sv + ']');
+    else if (pv) parts.push('[' + pv + ']');
+  }
 
-  const parts = [];
-  if (bracket) parts.push(`[${bracket}]`);
-  if (severity && priority) parts.push(`[${severity}][${priority}]`);
-  else if (severity) parts.push(`[${severity}]`);
-  else if (priority) parts.push(`[${priority}]`);
   if (title) parts.push(title);
 
   document.getElementById('ct-full-title').textContent = parts.length > 0 ? parts.join(' ') : '—';
@@ -125,10 +230,29 @@ function updateFullTitle() {
 
 function renderDoD() {
   const bracketEl = document.getElementById('ct-bracket');
-  const bracket = bracketEl ? bracketEl.value : '';
   const list = document.getElementById('ct-dod-list');
   if (!list) return;
-  const items = getDoDForBracket(bracket);
+
+  let brackets = [];
+  if (bracketEl) {
+    if (bracketEl.multiple) {
+      brackets = Array.from(bracketEl.selectedOptions).map((o) => o.value);
+    } else {
+      const v = bracketEl.value;
+      if (v) brackets = [v];
+    }
+  }
+
+  const seen = new Set();
+  const items = [];
+  brackets.forEach((b) => {
+    getDoDForBracket(b).forEach((item) => {
+      if (!seen.has(item)) {
+        seen.add(item);
+        items.push(item);
+      }
+    });
+  });
 
   list.innerHTML = items.map(
     (item) => `<label class="dod-item"><input type="checkbox" checked> ${escapeHtml(item)}</label>`
@@ -147,9 +271,12 @@ async function renderCustomFields(templateId) {
   container.innerHTML = tpl.fields.map((field) => {
     const label = escapeHtml(field.label);
     const key = field.key;
+    const ph = escapeHtml(field.placeholder || field.label);
+    const desc = field.description ? `<p class="form-group__hint">${escapeHtml(field.description)}</p>` : '';
+    const defVal = field.defaultValue ? escapeHtml(field.defaultValue) : '';
 
     if (field.type === 'dropdown' && field.options) {
-      const opts = field.options.map((o) => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+      const opts = field.options.map((o) => `<option value="${escapeHtml(o)}" ${o === field.defaultValue ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
       return `
         <div class="form-group">
           <label class="form-group__label" for="cf-${key}">${label}</label>
@@ -157,6 +284,7 @@ async function renderCustomFields(templateId) {
             <option value="">— Select —</option>
             ${opts}
           </select>
+          ${desc}
         </div>`;
     }
 
@@ -164,7 +292,8 @@ async function renderCustomFields(templateId) {
       return `
         <div class="form-group">
           <label class="form-group__label" for="cf-${key}">${label}</label>
-          <textarea class="form-group__textarea" id="cf-${key}" data-field-key="${key}" rows="2" placeholder="${label}"></textarea>
+          <textarea class="form-group__textarea" id="cf-${key}" data-field-key="${key}" rows="2" placeholder="${ph}">${defVal}</textarea>
+          ${desc}
         </div>`;
     }
 
@@ -175,13 +304,15 @@ async function renderCustomFields(templateId) {
           <div id="cf-${key}">${(field.options || []).map((o) =>
             `<label class="dod-item"><input type="checkbox" data-field-key="${key}" value="${escapeHtml(o)}"> ${escapeHtml(o)}</label>`
           ).join('')}</div>
+          ${desc}
         </div>`;
     }
 
     return `
       <div class="form-group">
         <label class="form-group__label" for="cf-${key}">${label}</label>
-        <input class="form-group__input" type="${field.type === 'url' ? 'url' : 'text'}" id="cf-${key}" data-field-key="${key}" placeholder="${label}">
+        <input class="form-group__input" type="${field.type === 'url' ? 'url' : 'text'}" id="cf-${key}" data-field-key="${key}" placeholder="${ph}" value="${defVal}">
+        ${desc}
       </div>`;
   }).join('');
 }
@@ -205,7 +336,16 @@ function collectFormData() {
   const bracketEl = document.getElementById('ct-bracket');
   const severityEl = document.getElementById('ct-severity');
   const priorityEl = document.getElementById('ct-priority');
-  const bracket = bracketEl ? bracketEl.value : '';
+  let bracket = '', bracketArr = [];
+  if (bracketEl) {
+    if (bracketEl.multiple) {
+      bracketArr = Array.from(bracketEl.selectedOptions).map((o) => o.value);
+      bracket = bracketArr.join(',');
+    } else {
+      bracket = bracketEl.value;
+      bracketArr = bracket ? [bracket] : [];
+    }
+  }
   const severity = severityEl ? severityEl.value : '';
   const priority = priorityEl ? priorityEl.value : '';
   const title = document.getElementById('ct-title').value.trim();
@@ -234,7 +374,7 @@ function collectFormData() {
   const fullTitle = document.getElementById('ct-full-title').textContent;
 
   return {
-    templateId, bracket, severity, priority, title,
+    templateId, bracket, bracketArr, severity, priority, title,
     fullTitle, story, acceptanceCriteria,
     dod: dodChecked, customFields,
     parentId
@@ -1998,6 +2138,11 @@ function bindEvents() {
     chrome.runtime.openOptionsPage();
   });
 
+  document.getElementById('manage-templates-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: 'templates/templates.html' });
+  });
+
   document.getElementById('fetch-modal').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeFetchModal();
   });
@@ -2014,12 +2159,6 @@ function bindEvents() {
 
   const templateSelect = document.getElementById('ct-template');
   if (templateSelect) templateSelect.addEventListener('change', onTemplateChange);
-  const bracketEl = document.getElementById('ct-bracket');
-  if (bracketEl) bracketEl.addEventListener('change', () => { updateFullTitle(); renderDoD(); });
-  const severityEl = document.getElementById('ct-severity');
-  if (severityEl) severityEl.addEventListener('change', updateFullTitle);
-  const priorityEl = document.getElementById('ct-priority');
-  if (priorityEl) priorityEl.addEventListener('change', updateFullTitle);
   const titleEl = document.getElementById('ct-title');
   if (titleEl) titleEl.addEventListener('input', updateFullTitle);
 

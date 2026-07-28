@@ -15,10 +15,13 @@
           <h1 class="header__title">Task Generator</h1>
           <div class="header__workspace-selector">
             <select id="workspace-switcher" class="header__select"></select>
-            <a href="#" id="manage-workspaces-link" class="header__manage-link" title="Manage Workspaces">&#9881;</a>
-          </div>
+          <a href="#" id="manage-workspaces-link" class="header__manage-link" title="Manage Workspaces">&#9881;</a>
         </div>
+      </div>
+      <div class="header__actions">
+        <a href="#" id="manage-templates-link" class="header__manage-link" title="Manage Templates">&#128203; Templates</a>
         <button class="header__refresh" id="refresh-btn" title="Refresh">&circlearrowright;</button>
+      </div>
       </header>
 
       <div class="toolbar">
@@ -114,7 +117,49 @@
 
         <!-- ===== MODE A: BY TEMPLATE ===== -->
         <div id="ct-mode-manual" style="display:none">
-          ...
+          <div class="form-group">
+            <label class="form-group__label" for="ct-template">Template</label>
+            <select class="form-group__input" id="ct-template">
+              <option value="">— Select template —</option>
+            </select>
+          </div>
+
+          <div id="ct-header-components"></div>
+
+          <div class="form-group">
+            <label class="form-group__label" for="ct-title">Title <span class="required">*</span></label>
+            <input class="form-group__input" type="text" id="ct-title" maxlength="200" placeholder="Issue title">
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label" for="ct-story">Story / Description <span class="required">*</span></label>
+            <textarea class="form-group__textarea" id="ct-story" rows="3" placeholder="Describe the issue..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label">Acceptance Criteria <span class="required">*</span></label>
+            <div id="ct-ac-list"></div>
+            <button class="btn btn--sm btn--secondary" id="ct-add-ac" style="margin-top:6px">+ Add AC</button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label">Definition of Done</label>
+            <div id="ct-dod-list"></div>
+          </div>
+
+          <div id="ct-custom-fields"></div>
+
+          <div id="ct-parent-group" class="form-group">
+            <label class="form-group__label">Parent Task</label>
+            <select class="form-group__input" id="ct-parent">
+              <option value="">— No parent —</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-top:12px">
+            <label class="form-group__label">Title Preview</label>
+            <div class="title-preview" id="ct-full-title">—</div>
+          </div>
         </div>
 
         <!-- ===== MODE B: BY REQUIREMENT (AI) ===== -->
