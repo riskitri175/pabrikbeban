@@ -114,6 +114,38 @@
           <p class="builder-section__desc">Pilih field bawaan Plane yang akan muncul di form.</p>
           <div class="chip-checklist" id="plane-field-toggles"></div>
         </section>
+
+        <!-- SECTION: AI GUIDANCE -->
+        <section class="builder-section">
+          <h3 class="builder-section__title">AI Guidance</h3>
+          <p class="builder-section__desc">
+            Tuliskan hasil akhir yang diharapkan. Teks ini akan menjadi acuan AI
+            saat generate task descriptions agar hasilnya tidak melenceng.
+          </p>
+          <div class="form-group">
+            <label class="form-group__label" for="er-editor">Expected Result</label>
+            <div class="editor-toolbar" id="er-editor-toolbar">
+              <button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>
+              <button type="button" data-cmd="italic" title="Italic"><em>I</em></button>
+              <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+              <button type="button" data-cmd="strikeThrough" title="Strike"><s>S</s></button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="insertOrderedList" title="Numbered List">1.</button>
+              <button type="button" data-cmd="insertUnorderedList" title="Bullet List">•</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="formatBlock" data-arg="h3" title="Heading">H3</button>
+              <button type="button" data-cmd="formatBlock" data-arg="p" title="Paragraph">P</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="createLink" title="Link">🔗</button>
+              <button type="button" data-cmd="insertHTML" data-arg="<hr>" title="Divider">—</button>
+              <span class="editor-toolbar__sep"></span>
+              <button type="button" data-cmd="insertTable" title="Table">⊞</button>
+            </div>
+            <div class="editor-wrapper">
+              <div class="editor-content" id="er-editor" contenteditable="true" data-placeholder="e.g. Semua task harus mencakup implementasi backend API, validasi input, error handling, unit testing, dan dokumentasi API."></div>
+            </div>
+          </div>
+        </section>
       </div>
 
        <!-- RIGHT PANEL: PREVIEW -->

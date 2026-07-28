@@ -13,6 +13,7 @@ let bracketMultiSelect = null;
 let dragSrcSegment = null;
 let dragSrcFieldChip = null;
 let builderPlaneFields = {};
+let builderExpectedResult = '';
 
 const PLANE_FIELD_DEFS = [
   { key: 'state', label: 'State', type: 'select' },
@@ -232,12 +233,15 @@ function openCreateBuilder() {
   builderCustomBracketDefs = [];
   builderCustomFieldDefs = [];
   builderPlaneFields = { ...PLANE_FIELD_DEFAULTS };
+  builderExpectedResult = '';
   initBracketMultiSelect();
   initFieldMultiSelect();
   renderCustomLabelTags();
   renderSegments();
   renderFieldChips();
   renderPlaneFieldToggles();
+  const erEditor = document.getElementById('er-editor');
+  if (erEditor) erEditor.innerHTML = '';
   updatePreview();
   showBuilderView();
 }
@@ -262,6 +266,7 @@ function openEditBuilder(id) {
     return STANDARD_FIELD_MAP[upper] ? upper : k;
   });
   builderPlaneFields = tpl.header?.planeFields ? { ...PLANE_FIELD_DEFAULTS, ...tpl.header.planeFields } : { ...PLANE_FIELD_DEFAULTS };
+  builderExpectedResult = tpl.header?.expectedResult || '';
 
   initBracketMultiSelect();
   if (bracketMultiSelect && builderBracketOptions.length > 0) {
@@ -275,6 +280,8 @@ function openEditBuilder(id) {
   renderSegments();
   renderFieldChips();
   renderPlaneFieldToggles();
+  const erEditor = document.getElementById('er-editor');
+  if (erEditor) erEditor.innerHTML = builderExpectedResult;
   updatePreview();
   showBuilderView();
 }
@@ -1116,7 +1123,8 @@ function saveBuilder() {
     bracketOptions: [...builderBracketOptions],
     customBracketDefs: [...builderCustomBracketDefs],
     customFieldDefs: [...builderCustomFieldDefs],
-    planeFields: { ...builderPlaneFields }
+    planeFields: { ...builderPlaneFields },
+    expectedResult: document.getElementById('er-editor')?.innerHTML || ''
   };
 
   if (editingTemplateId) {
@@ -1257,6 +1265,44 @@ function bindListEvents() {
   });
 }
 
+function initExpectedResultEditor() {
+  const toolbar = document.getElementById('er-editor-toolbar');
+  const editor = document.getElementById('er-editor');
+  if (!toolbar || !editor) return;
+
+  toolbar.querySelectorAll('button[data-cmd]').forEach((btn) => {
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const cmd = btn.dataset.cmd;
+      const arg = btn.dataset.arg;
+
+      if (cmd === 'createLink') {
+        const url = prompt('Enter URL:');
+        if (url) document.execCommand('createLink', false, url);
+      } else if (cmd === 'formatBlock' && arg) {
+        document.execCommand('formatBlock', false, arg);
+      } else if (cmd === 'insertHTML' && arg) {
+        document.execCommand('insertHTML', false, arg);
+      } else if (cmd === 'insertTable') {
+        const cols = parseInt(prompt('Columns:', '3'), 10) || 3;
+        const rows = parseInt(prompt('Rows:', '3'), 10) || 3;
+        if (cols < 1 || rows < 1) return;
+        let html = '<table><tbody>';
+        for (let r = 0; r < rows; r++) {
+          html += '<tr>';
+          for (let c = 0; c < cols; c++) html += '<td><br></td>';
+          html += '</tr>';
+        }
+        html += '</tbody></table><br>';
+        document.execCommand('insertHTML', false, html);
+      } else {
+        document.execCommand(cmd, false, null);
+      }
+      editor.focus();
+    });
+  });
+}
+
 function bindBuilderEvents() {
   document.getElementById('builder-back').addEventListener('click', closeBuilder);
   document.getElementById('builder-cancel').addEventListener('click', closeBuilder);
@@ -1288,6 +1334,8 @@ function bindBuilderEvents() {
   document.getElementById('cf-desc').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); addCustomFieldOption(); }
   });
+
+  initExpectedResultEditor();
 
   document.getElementById('header-title').addEventListener('input', updatePreview);
   document.getElementById('tpl-name').addEventListener('input', updatePreview);
