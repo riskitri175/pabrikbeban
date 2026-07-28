@@ -97,8 +97,14 @@
         <!-- SECTION: TASK FIELDS -->
         <section class="builder-section">
           <h3 class="builder-section__title">Task Fields</h3>
-          <div id="field-list"></div>
-          <button class="btn btn--secondary btn--sm" id="add-field-btn">+ Add Field</button>
+          <div class="form-group">
+            <label class="form-group__label">Standard Fields <span class="hint">(pilih field yang akan muncul)</span></label>
+            <div class="multi-select" id="field-multiselect"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-group__label">Field Format <span class="hint">(drag to reorder)</span></label>
+            <div class="segment-list" id="field-segment-list"></div>
+          </div>
         </section>
       </div>
 

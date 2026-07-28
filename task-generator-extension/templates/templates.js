@@ -6,9 +6,37 @@ let builderCustomLabels = [];
 let builderFields = [];
 let builderBracketOptions = [];
 let builderCustomBracketDefs = [];
+let builderFieldKeys = [];
+let fieldMultiSelect = null;
 let bracketMultiSelect = null;
 let dragSrcSegment = null;
-let dragSrcField = null;
+let dragSrcFieldChip = null;
+
+const STANDARD_FIELDS = [
+  { key: 'module', label: 'Module', type: 'text', constraint: 'optional', description: 'Nama modul atau fitur utama yang dikerjakan, misalnya Voucher, Dealer, Produk, atau Kasir.' },
+  { key: 'epic', label: 'Epic', type: 'text', constraint: 'optional', description: 'Epic atau fitur besar yang menjadi induk dari task.' },
+  { key: 'section', label: 'Section', type: 'text', constraint: 'optional', description: 'Bagian atau halaman dari suatu modul, misalnya List, Detail, Form, Dashboard, atau Setting.' },
+  { key: 'component', label: 'Component', type: 'text', constraint: 'optional', description: 'Komponen yang dikerjakan seperti API, Table, Modal, Button, Filter, Export, Import, dan sebagainya.' },
+  { key: 'story', label: 'Story', type: 'rich_text', constraint: 'optional', description: 'Menjelaskan kebutuhan dari sudut pandang pengguna atau proses bisnis.' },
+  { key: 'expected_result', label: 'Expected Result', type: 'rich_text', constraint: 'optional', description: 'Hasil akhir yang diharapkan setelah task selesai.' },
+  { key: 'figma_link', label: 'Link Figma', type: 'url', constraint: 'optional', description: 'Link desain UI/UX yang menjadi acuan implementasi.' },
+  { key: 'url_document', label: 'URL / Document', type: 'url', constraint: 'optional', description: 'Link PRD, BRD, FSD, Notion, Mintlify, atau dokumen pendukung lainnya.' },
+  { key: 'api', label: 'API', type: 'text', constraint: 'optional', description: 'Endpoint API yang digunakan atau akan dibuat.' },
+  { key: 'parameter', label: 'Parameter', type: 'text', constraint: 'optional', description: 'Parameter Request berupa Query, Path Variable, Header, maupun Body Request.' },
+  { key: 'environment', label: 'Environment', type: 'dropdown', constraint: 'optional', options: ['Development', 'Staging', 'Production'], description: 'Environment implementasi seperti Development, Staging, atau Production.' },
+  { key: 'estimasi_time', label: 'Estimasi Time', type: 'text', constraint: 'optional', description: 'Estimasi waktu penyelesaian task sesuai hasil diskusi tim.' },
+  { key: 'note', label: 'Note', type: 'rich_text', constraint: 'optional', description: 'Catatan tambahan yang perlu diketahui oleh tim implementasi.' },
+  { key: 'acceptance_criteria', label: 'Acceptance Criteria', type: 'rich_text', constraint: 'optional', description: 'Kriteria yang harus dipenuhi agar task dinyatakan sesuai dengan requirement.' },
+  { key: 'business_rule', label: 'Business Rule', type: 'rich_text', constraint: 'optional', description: 'Aturan bisnis yang harus diterapkan selama implementasi.' },
+  { key: 'priority', label: 'Priority', type: 'dropdown', constraint: 'optional', options: ['Critical', 'High', 'Medium', 'Low'], description: 'Tingkat prioritas task (Critical, High, Medium, Low).' },
+  { key: 'severity', label: 'Severity', type: 'dropdown', constraint: 'optional', options: ['P0', 'P1', 'P2', 'P3', '-'], description: 'Dampak teknis: P0 / P1 / P2 / P3.' },
+  { key: 'sprint', label: 'Sprint', type: 'text', constraint: 'optional', description: 'Sprint atau milestone tempat task akan dikerjakan.' },
+  { key: 'team', label: 'Team', type: 'text', constraint: 'optional', description: 'Tim yang bertanggung jawab mengerjakan task, seperti Backend, Frontend, Mobile, QA, UI/UX, atau Technical Writer.' },
+  { key: 'owner', label: 'Owner', type: 'text', constraint: 'optional', description: 'PIC yang bertanggung jawab terhadap penyelesaian task.' },
+  { key: 'dependency', label: 'Dependency', type: 'text', constraint: 'optional', description: 'Ketergantungan terhadap task, sistem, atau tim lain sebelum task dapat dikerjakan atau diselesaikan.' }
+];
+const STANDARD_FIELD_MAP = {};
+STANDARD_FIELDS.forEach(f => { STANDARD_FIELD_MAP[f.key] = f; });
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadTemplates();
@@ -125,9 +153,6 @@ function closeAllDropdowns() {
   document.querySelectorAll('.template-card__dropdown--open').forEach((d) => {
     d.classList.remove('template-card__dropdown--open');
   });
-  document.querySelectorAll('.field-card__dropdown--open').forEach((d) => {
-    d.classList.remove('field-card__dropdown--open');
-  });
 }
 
 function duplicateTemplate(id) {
@@ -180,13 +205,14 @@ function openCreateBuilder() {
   document.getElementById('header-title').value = '';
   builderSegments = [];
   builderCustomLabels = [];
-  builderFields = [];
+  builderFieldKeys = [];
   builderBracketOptions = [];
   builderCustomBracketDefs = [];
   initBracketMultiSelect();
+  initFieldMultiSelect();
   renderCustomLabelTags();
   renderSegments();
-  renderFieldCards();
+  renderFieldChips();
   updatePreview();
   showBuilderView();
 }
@@ -205,15 +231,19 @@ function openEditBuilder(id) {
   builderCustomLabels = tpl.header?.customLabels ? [...tpl.header.customLabels] : [];
   builderBracketOptions = tpl.header?.bracketOptions ? [...tpl.header.bracketOptions] : [];
   builderCustomBracketDefs = tpl.header?.customBracketDefs ? [...tpl.header.customBracketDefs] : [];
-  builderFields = tpl.fields.map((f) => ({ ...f, options: f.options ? [...f.options] : undefined }));
+  builderFieldKeys = tpl.fieldKeys || tpl.header?.fieldKeys || [];
 
   initBracketMultiSelect();
   if (bracketMultiSelect && builderBracketOptions.length > 0) {
     bracketMultiSelect.setValue(builderBracketOptions);
   }
+  initFieldMultiSelect();
+  if (fieldMultiSelect && builderFieldKeys.length > 0) {
+    fieldMultiSelect.setValue(builderFieldKeys);
+  }
   renderCustomLabelTags();
   renderSegments();
-  renderFieldCards();
+  renderFieldChips();
   updatePreview();
   showBuilderView();
 }
@@ -226,6 +256,186 @@ function syncBracketSegments() {
   const customSegments = builderSegments.filter((s) => s.startsWith('custom:'));
   builderSegments = [...builderBracketOptions, ...customSegments];
   renderSegments();
+}
+
+function syncFieldSegments() {
+  builderFieldKeys = fieldMultiSelect ? fieldMultiSelect.getValue() : [];
+  renderFieldChips();
+}
+
+function renderFieldChips() {
+  const container = document.getElementById('field-segment-list');
+  container.innerHTML = '';
+
+  builderFieldKeys.forEach((key, idx) => {
+    const field = STANDARD_FIELD_MAP[key];
+    if (!field) return;
+    const chip = document.createElement('div');
+    chip.className = 'segment-chip segment-chip--field';
+    chip.draggable = true;
+    chip.dataset.idx = idx;
+    chip.innerHTML = `<span class="segment-chip__handle">&#8942;&#8942;</span><span class="segment-chip__label">${escapeHtml(field.label)}</span>`;
+    container.appendChild(chip);
+
+    chip.addEventListener('dragstart', (e) => {
+      dragSrcFieldChip = idx;
+      chip.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    chip.addEventListener('dragend', () => {
+      chip.classList.remove('dragging');
+      dragSrcFieldChip = null;
+    });
+    chip.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+    chip.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (dragSrcFieldChip === null || dragSrcFieldChip === idx) return;
+      const moved = builderFieldKeys.splice(dragSrcFieldChip, 1)[0];
+      builderFieldKeys.splice(idx, 0, moved);
+      if (fieldMultiSelect) fieldMultiSelect.setValue(builderFieldKeys);
+      renderFieldChips();
+      updatePreview();
+    });
+  });
+}
+
+function initFieldMultiSelect() {
+  const container = document.getElementById('field-multiselect');
+  container.innerHTML = '';
+
+  const selected = new Set(builderFieldKeys);
+
+  const trigger = document.createElement('div');
+  trigger.className = 'multi-select__trigger';
+  trigger.tabIndex = 0;
+
+  const chips = document.createElement('div');
+  chips.className = 'multi-select__chips';
+
+  const placeholder = document.createElement('span');
+  placeholder.className = 'multi-select__placeholder';
+  placeholder.textContent = '— Pilih field —';
+
+  const arrow = document.createElement('span');
+  arrow.className = 'multi-select__arrow';
+  arrow.textContent = '\u25BC';
+
+  trigger.appendChild(chips);
+  chips.appendChild(placeholder);
+  trigger.appendChild(arrow);
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'multi-select__dropdown';
+
+  const optionEls = [];
+  STANDARD_FIELDS.forEach((opt) => {
+    const div = document.createElement('div');
+    div.className = 'multi-select__option';
+    div.dataset.value = opt.key;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'multi-select__option-checkbox';
+
+    const labelWrap = document.createElement('div');
+    labelWrap.className = 'multi-select__option-label';
+    labelWrap.innerHTML = `${escapeHtml(opt.label)}<div class="multi-select__option-desc">${escapeHtml(opt.description)}</div>`;
+
+    div.appendChild(cb);
+    div.appendChild(labelWrap);
+
+    div.addEventListener('click', (e) => {
+      if (e.target !== cb) cb.checked = !cb.checked;
+      toggleFieldOption(opt.key, cb.checked);
+    });
+
+    cb.addEventListener('change', () => {
+      toggleFieldOption(opt.key, cb.checked);
+    });
+
+    dropdown.appendChild(div);
+    optionEls.push({ el: div, cb, value: opt.key });
+  });
+
+  container.appendChild(trigger);
+  container.appendChild(dropdown);
+
+  function toggleFieldOption(key, isSelected) {
+    if (isSelected) {
+      selected.add(key);
+    } else {
+      selected.delete(key);
+    }
+    builderFieldKeys = Array.from(selected);
+    syncFieldSegments();
+    updateUI();
+    updatePreview();
+  }
+
+  function updateUI() {
+    chips.innerHTML = '';
+    if (selected.size === 0) {
+      chips.appendChild(placeholder);
+    } else {
+      selected.forEach((key) => {
+        const field = STANDARD_FIELD_MAP[key];
+        const label = field ? field.label : key;
+        const chip = document.createElement('span');
+        chip.className = 'multi-select__chip';
+        chip.innerHTML = `${escapeHtml(label)} <button class="multi-select__chip-remove" data-value="${key}">&times;</button>`;
+        chip.querySelector('.multi-select__chip-remove').addEventListener('click', (e) => {
+          e.stopPropagation();
+          selected.delete(key);
+          builderFieldKeys = Array.from(selected);
+          const optEl = optionEls.find((o) => o.value === key);
+          if (optEl) optEl.cb.checked = false;
+          syncFieldSegments();
+          updateUI();
+          updatePreview();
+        });
+        chips.appendChild(chip);
+      });
+    }
+    optionEls.forEach((o) => {
+      o.cb.checked = selected.has(o.value);
+      o.el.classList.toggle('multi-select__option--selected', selected.has(o.value));
+    });
+    arrow.classList.toggle('multi-select__arrow--open', dropdown.classList.contains('multi-select__dropdown--open'));
+  }
+
+  trigger.addEventListener('click', () => {
+    dropdown.classList.toggle('multi-select__dropdown--open');
+    trigger.classList.toggle('multi-select__trigger--open');
+    arrow.classList.toggle('multi-select__arrow--open');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!container.contains(e.target)) {
+      dropdown.classList.remove('multi-select__dropdown--open');
+      trigger.classList.remove('multi-select__trigger--open');
+      arrow.classList.remove('multi-select__arrow--open');
+    }
+  });
+
+  updateUI();
+
+  fieldMultiSelect = {
+    getValue: () => Array.from(selected),
+    setValue: (values) => {
+      selected.clear();
+      (values || []).forEach((v) => selected.add(v));
+      builderFieldKeys = Array.from(selected);
+      updateUI();
+    },
+    clear: () => {
+      selected.clear();
+      builderFieldKeys = [];
+      updateUI();
+    }
+  };
 }
 
 function initBracketMultiSelect() {
@@ -558,320 +768,7 @@ function renderSegments() {
   });
 }
 
-// ===== FIELD CARDS =====
 
-function renderFieldCards() {
-  const container = document.getElementById('field-list');
-  container.innerHTML = '';
-
-  builderFields.forEach((field, idx) => {
-    const card = createFieldCard(field, idx);
-    container.appendChild(card);
-  });
-}
-
-function createFieldCard(field, idx) {
-  const card = document.createElement('div');
-  card.className = 'field-card';
-  card.draggable = true;
-  card.dataset.idx = idx;
-
-  const constraintBadge = {
-    mandatory: 'field-card__badge--mandatory',
-    optional: 'field-card__badge--optional',
-    ai_generated: 'field-card__badge--ai',
-    fixed_input: 'field-card__badge--fixed'
-  }[field.constraint] || 'field-card__badge--optional';
-
-  card.innerHTML = `
-    <div class="field-card__header">
-      <span class="field-card__drag">&#8942;&#8942;</span>
-      <span class="field-card__name">${escapeHtml(field.label || 'Untitled Field')}</span>
-      <div class="field-card__badges">
-        <span class="field-card__badge field-card__badge--type">${escapeHtml(field.type)}</span>
-        <span class="field-card__badge ${constraintBadge}">${escapeHtml(field.constraint)}</span>
-      </div>
-      <button class="field-card__toggle" title="Expand">&#9662;</button>
-      <div class="field-card__more">
-        <button class="field-card__more-btn" title="More">&#8943;</button>
-        <div class="field-card__dropdown">
-          <button class="field-card__dropdown-item" data-action="duplicate-field">Duplicate</button>
-          <button class="field-card__dropdown-item field-card__dropdown-item--danger" data-action="delete-field">Delete</button>
-        </div>
-      </div>
-    </div>
-    <div class="field-card__body">
-      <div class="field-card__row">
-        <div class="form-group">
-          <label class="form-group__label">Label</label>
-          <input class="form-group__input fc-label" type="text" value="${escapeHtml(field.label)}" maxlength="50" placeholder="e.g. Figma Link">
-        </div>
-        <div class="form-group">
-          <label class="form-group__label">Key</label>
-          <input class="form-group__input fc-key" type="text" value="${escapeHtml(field.key)}" placeholder="figma_link" pattern="^[a-z0-9_]+$">
-        </div>
-      </div>
-      <div class="field-card__row">
-        <div class="form-group">
-          <label class="form-group__label">Type</label>
-          <select class="form-group__input fc-type">
-            <option value="text" ${field.type === 'text' ? 'selected' : ''}>Text</option>
-            <option value="rich_text" ${field.type === 'rich_text' ? 'selected' : ''}>Rich Text</option>
-            <option value="dropdown" ${field.type === 'dropdown' ? 'selected' : ''}>Dropdown</option>
-            <option value="checkbox_list" ${field.type === 'checkbox_list' ? 'selected' : ''}>Checkbox List</option>
-            <option value="url" ${field.type === 'url' ? 'selected' : ''}>URL</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-group__label">Constraint</label>
-          <select class="form-group__input fc-constraint">
-            <option value="mandatory" ${field.constraint === 'mandatory' ? 'selected' : ''}>Mandatory</option>
-            <option value="optional" ${field.constraint === 'optional' ? 'selected' : ''}>Optional</option>
-            <option value="ai_generated" ${field.constraint === 'ai_generated' ? 'selected' : ''}>AI-Generated</option>
-            <option value="fixed_input" ${field.constraint === 'fixed_input' ? 'selected' : ''}>Fixed Input</option>
-          </select>
-        </div>
-      </div>
-      <div class="options-editor ${(field.type === 'dropdown' || field.type === 'checkbox_list') ? 'options-editor--visible' : ''}">
-        <p class="options-editor__label">Options</p>
-        <div class="options-editor__tags"></div>
-        <div class="options-editor__add">
-          <input class="options-editor__add-input" type="text" placeholder="Add option..." maxlength="60">
-          <button class="btn btn--secondary btn--sm oe-add-btn">+</button>
-        </div>
-      </div>
-      <div class="field-advanced">
-        <button class="field-advanced__toggle">&#9662; Advanced</button>
-        <div class="field-advanced__body">
-          <div class="field-card__row">
-            <div class="form-group">
-              <label class="form-group__label">Placeholder</label>
-              <input class="form-group__input fc-placeholder" type="text" value="${escapeHtml(field.placeholder || '')}" placeholder="Placeholder text">
-            </div>
-            <div class="form-group">
-              <label class="form-group__label">Default Value</label>
-              <input class="form-group__input fc-default" type="text" value="${escapeHtml(field.defaultValue || '')}" placeholder="Default value">
-            </div>
-          </div>
-          <div class="field-card__row field-card__row--full">
-            <div class="form-group">
-              <label class="form-group__label">Description / Help Text</label>
-              <input class="form-group__input fc-description" type="text" value="${escapeHtml(field.description || '')}" placeholder="Brief help text for this field">
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  const toggle = card.querySelector('.field-card__toggle');
-  const body = card.querySelector('.field-card__body');
-
-  toggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    body.classList.toggle('field-card__body--open');
-    toggle.classList.toggle('field-card__toggle--open');
-  });
-
-  card.querySelector('.field-card__header').addEventListener('click', () => {
-    body.classList.toggle('field-card__body--open');
-    toggle.classList.toggle('field-card__toggle--open');
-  });
-
-  card.querySelector('.field-card__drag').addEventListener('mousedown', (e) => {
-    e.stopPropagation();
-  });
-
-  const moreBtn = card.querySelector('.field-card__more-btn');
-  const dropdown = card.querySelector('.field-card__dropdown');
-  moreBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeAllDropdowns();
-    dropdown.classList.toggle('field-card__dropdown--open');
-  });
-
-  card.querySelector('[data-action="duplicate-field"]').addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeAllDropdowns();
-    const clone = JSON.parse(JSON.stringify(field));
-    clone.label = 'Copy of ' + clone.label;
-    clone.key = clone.key + '_copy';
-    builderFields.splice(idx + 1, 0, clone);
-    renderFieldCards();
-    updatePreview();
-  });
-
-  card.querySelector('[data-action="delete-field"]').addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeAllDropdowns();
-    builderFields.splice(idx, 1);
-    renderFieldCards();
-    updatePreview();
-  });
-
-  const labelInput = card.querySelector('.fc-label');
-  const keyInput = card.querySelector('.fc-key');
-
-  labelInput.addEventListener('input', () => {
-    field.label = labelInput.value.trim();
-    if (!editingTemplateId || !keyInput.value) {
-      field.key = slugify(labelInput.value);
-      keyInput.value = field.key;
-    }
-    card.querySelector('.field-card__name').textContent = field.label || 'Untitled Field';
-    updatePreview();
-  });
-
-  keyInput.addEventListener('input', () => {
-    field.key = keyInput.value.trim();
-  });
-
-  const typeSelect = card.querySelector('.fc-type');
-  typeSelect.addEventListener('change', () => {
-    field.type = typeSelect.value;
-    card.querySelector('.field-card__badge--type').textContent = field.type;
-    const oe = card.querySelector('.options-editor');
-    if (field.type === 'dropdown' || field.type === 'checkbox_list') {
-      oe.classList.add('options-editor--visible');
-    } else {
-      oe.classList.remove('options-editor--visible');
-    }
-    updatePreview();
-  });
-
-  const constraintSelect = card.querySelector('.fc-constraint');
-  constraintSelect.addEventListener('change', () => {
-    field.constraint = constraintSelect.value;
-    const badge = card.querySelectorAll('.field-card__badge')[1];
-    badge.textContent = field.constraint;
-    badge.className = 'field-card__badge ' + ({
-      mandatory: 'field-card__badge--mandatory',
-      optional: 'field-card__badge--optional',
-      ai_generated: 'field-card__badge--ai',
-      fixed_input: 'field-card__badge--fixed'
-    }[field.constraint] || 'field-card__badge--optional');
-    updatePreview();
-  });
-
-  const placeholderInput = card.querySelector('.fc-placeholder');
-  placeholderInput.addEventListener('input', () => {
-    field.placeholder = placeholderInput.value.trim();
-    updatePreview();
-  });
-
-  const defaultInput = card.querySelector('.fc-default');
-  defaultInput.addEventListener('input', () => {
-    field.defaultValue = defaultInput.value.trim();
-  });
-
-  const descInput = card.querySelector('.fc-description');
-  descInput.addEventListener('input', () => {
-    field.description = descInput.value.trim();
-    updatePreview();
-  });
-
-  const advToggle = card.querySelector('.field-advanced__toggle');
-  const advBody = card.querySelector('.field-advanced__body');
-  advToggle.addEventListener('click', () => {
-    advBody.classList.toggle('field-advanced__body--open');
-    advToggle.innerHTML = advBody.classList.contains('field-advanced__body--open')
-      ? '&#9652; Advanced'
-      : '&#9662; Advanced';
-  });
-
-  renderOptionsEditor(card, field);
-
-  card.addEventListener('dragstart', (e) => {
-    if (e.target.closest('.field-card__drag') || e.target === card) {
-      dragSrcField = idx;
-      card.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-    } else {
-      e.preventDefault();
-    }
-  });
-  card.addEventListener('dragend', () => {
-    card.classList.remove('dragging');
-    dragSrcField = null;
-  });
-  card.addEventListener('dragover', (e) => {
-    if (dragSrcField === null) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  });
-  card.addEventListener('drop', (e) => {
-    if (dragSrcField === null || dragSrcField === idx) return;
-    e.preventDefault();
-    const moved = builderFields.splice(dragSrcField, 1)[0];
-    builderFields.splice(idx, 0, moved);
-    renderFieldCards();
-    updatePreview();
-  });
-
-  return card;
-}
-
-function renderOptionsEditor(card, field) {
-  const tagsContainer = card.querySelector('.options-editor__tags');
-  const addInput = card.querySelector('.options-editor__add-input');
-  const addBtn = card.querySelector('.oe-add-btn');
-
-  if (!field.options) field.options = [];
-
-  function renderTags() {
-    tagsContainer.innerHTML = '';
-    field.options.forEach((opt, oi) => {
-      const tag = document.createElement('span');
-      tag.className = 'options-editor__tag';
-      tag.innerHTML = `${escapeHtml(opt)}<button class="options-editor__tag-remove" data-oi="${oi}">&times;</button>`;
-      tag.querySelector('.options-editor__tag-remove').addEventListener('click', () => {
-        field.options.splice(oi, 1);
-        renderTags();
-        updatePreview();
-      });
-      tagsContainer.appendChild(tag);
-    });
-  }
-
-  function addOption() {
-    const val = addInput.value.trim();
-    if (!val) return;
-    if (field.options.includes(val)) { addInput.value = ''; return; }
-    field.options.push(val);
-    addInput.value = '';
-    renderTags();
-    updatePreview();
-  }
-
-  addBtn.addEventListener('click', addOption);
-  addInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); addOption(); }
-  });
-
-  renderTags();
-}
-
-function addNewField() {
-  builderFields.push({
-    key: '',
-    label: '',
-    type: 'text',
-    constraint: 'mandatory',
-    options: [],
-    placeholder: '',
-    defaultValue: '',
-    description: ''
-  });
-  renderFieldCards();
-  const cards = document.querySelectorAll('.field-card');
-  const last = cards[cards.length - 1];
-  if (last) {
-    last.querySelector('.field-card__body').classList.add('field-card__body--open');
-    last.querySelector('.field-card__toggle').classList.add('field-card__toggle--open');
-    last.querySelector('.fc-label').focus();
-  }
-  updatePreview();
-}
 
 // ===== PREVIEW =====
 
@@ -901,18 +798,21 @@ function updateTitlePreview() {
 
 function updateFormPreview() {
   const container = document.getElementById('preview-form');
+  const resolvedFields = builderFieldKeys
+    .map((key) => STANDARD_FIELD_MAP[key])
+    .filter(Boolean);
 
-  if (builderFields.length === 0) {
-    container.innerHTML = '<p class="preview__empty">Add fields to see preview.</p>';
+  if (resolvedFields.length === 0) {
+    container.innerHTML = '<p class="preview__empty">Select fields to see preview.</p>';
     return;
   }
 
-  container.innerHTML = builderFields
+  container.innerHTML = resolvedFields
     .filter((f) => f.label)
     .map((field) => {
       const label = escapeHtml(field.label);
       const required = field.constraint === 'mandatory' ? '<span class="required">*</span>' : '';
-      const ph = escapeHtml(field.placeholder || field.label);
+      const ph = escapeHtml(field.label);
       const desc = field.description ? `<p class="form-group__desc">${escapeHtml(field.description)}</p>` : '';
 
       if (field.type === 'dropdown' && field.options && field.options.length > 0) {
@@ -959,23 +859,19 @@ function saveBuilder() {
 
   if (!name) { showToast('Template name is required.', 'error'); return; }
 
-  const fields = builderFields
-    .filter((f) => f.label && f.key)
-    .map((f) => {
+  const fields = builderFieldKeys
+    .map((key) => {
+      const f = STANDARD_FIELD_MAP[key];
+      if (!f) return null;
       const out = { key: f.key, label: f.label, type: f.type, constraint: f.constraint };
       if (f.options && f.options.length > 0 && (f.type === 'dropdown' || f.type === 'checkbox_list')) {
         out.options = [...f.options];
       }
-      if (f.placeholder) out.placeholder = f.placeholder;
-      if (f.defaultValue) out.defaultValue = f.defaultValue;
-      if (f.description) out.description = f.description;
       return out;
-    });
+    })
+    .filter(Boolean);
 
-  if (fields.length === 0) { showToast('At least one field with label and key is required.', 'error'); return; }
-
-  const keys = fields.map((f) => f.key);
-  if (keys.length !== new Set(keys).size) { showToast('Field keys must be unique.', 'error'); return; }
+  if (fields.length === 0) { showToast('Select at least one field.', 'error'); return; }
 
   const header = {
     segments: [...builderSegments],
@@ -992,13 +888,14 @@ function saveBuilder() {
         name,
         category: currentTemplates[index].category || 'General',
         header,
-        fields
+        fields,
+        fieldKeys: [...builderFieldKeys]
       };
     }
     showToast('Template updated.', 'success');
   } else {
     const newId = 'tpl_' + slugify(name) + '_' + Date.now();
-    currentTemplates.push({ id: newId, name, category: 'General', header, fields });
+    currentTemplates.push({ id: newId, name, category: 'General', header, fields, fieldKeys: [...builderFieldKeys] });
     showToast('Template created.', 'success');
   }
 
@@ -1115,7 +1012,7 @@ function bindListEvents() {
   });
 
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.template-card__more') && !e.target.closest('.field-card__more')) {
+    if (!e.target.closest('.template-card__more')) {
       closeAllDropdowns();
     }
   });
@@ -1125,7 +1022,6 @@ function bindBuilderEvents() {
   document.getElementById('builder-back').addEventListener('click', closeBuilder);
   document.getElementById('builder-cancel').addEventListener('click', closeBuilder);
   document.getElementById('builder-save').addEventListener('click', saveBuilder);
-  document.getElementById('add-field-btn').addEventListener('click', addNewField);
 
   document.getElementById('cl-add-btn').addEventListener('click', addCustomLabel);
   document.getElementById('cl-input').addEventListener('keydown', (e) => {
