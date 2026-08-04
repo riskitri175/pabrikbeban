@@ -47,10 +47,19 @@ async function loadWorkspaceSwitcher() {
 
 async function switchWorkspace(workspaceId) {
   if (!workspaceId) return;
+  showFullscreenLoader();
   PlaneAPI.invalidateIssueCache();
   PlaneAPI._invalidateProjectCache();
   await Storage.setActiveWorkspace(workspaceId);
-  await loadWorkspaceSwitcher();
+  window.location.reload();
+}
+
+function showFullscreenLoader(text) {
+  const overlay = document.getElementById('fullscreen-loader');
+  if (!overlay) return;
+  const textEl = document.getElementById('fullscreen-loader-text');
+  if (textEl && text) textEl.textContent = text;
+  overlay.style.display = 'flex';
 }
 
 // ===== CREATE TASK =====
@@ -2073,8 +2082,15 @@ function bindEvents() {
     refreshTree();
   });
 
-  document.getElementById('workspace-switcher').addEventListener('change', (e) => {
-    switchWorkspace(e.target.value);
+  document.getElementById('workspace-switcher').addEventListener('change', async (e) => {
+    const newWorkspaceId = e.target.value;
+    if (!newWorkspaceId) {
+      await loadWorkspaceSwitcher();
+      return;
+    }
+    const settings = await Storage.getSettingsDecrypted();
+    if (newWorkspaceId === settings?.active_workspace_id) return;
+    await switchWorkspace(newWorkspaceId);
   });
 
   document.getElementById('manage-workspaces-link').addEventListener('click', (e) => {

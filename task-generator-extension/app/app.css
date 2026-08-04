@@ -675,6 +675,34 @@ body {
   to { transform: rotate(360deg); }
 }
 
+.fullscreen-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+.fullscreen-loader__spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.fullscreen-loader__text {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .search-info__text {
   color: #64748b;
   font-size: 14px;
