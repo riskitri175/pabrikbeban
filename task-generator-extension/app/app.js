@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadWorkspaceSwitcher();
   populateCreateTaskDropdowns();
   await loadTemplateOptions();
-  await populateAITemplateDropdown();
   await loadBatch();
   await Promise.all([initDirectForm(), loadStateCache(), loadMemberCache()]);
   setupParentSearch();
@@ -111,43 +110,7 @@ async function onTemplateChange() {
   }
 
   if (modeManual) modeManual.style.display = 'block';
-  renderDoD(templateId);
 }
-
-async function renderDoD(templateId) {
-  const list = document.getElementById('ct-dod-list');
-  if (!list) return;
-
-  let brackets = [];
-  if (templateId) {
-    const templates = await Storage.getTemplates();
-    const tpl = (templates || []).find((t) => t.id === templateId);
-    const header = tpl?.header;
-    if (header?.segments) {
-      brackets = header.segments.filter((s) => !s.startsWith('custom:') && !['severity', 'priority'].includes(s) && s !== 'bracket');
-    }
-  }
-
-  const seen = new Set();
-  const items = [];
-  brackets.forEach((b) => {
-    getDoDForBracket(b).forEach((item) => {
-      if (!seen.has(item)) {
-        seen.add(item);
-        items.push(item);
-      }
-    });
-  });
-
-  const editor = document.getElementById('ct-dod-editor');
-  if (!editor) return;
-
-  if (items.length > 0) {
-    editor.innerHTML = '<ul>' + items.map((item) => `<li>${escapeHtml(item)}</li>`).join('') + '</ul>';
-  }
-}
-
-function addAcRow() {}
 
 function collectFormData() {
   const templateSelect = document.getElementById('ct-template');
@@ -156,12 +119,10 @@ function collectFormData() {
   const title = document.getElementById('ct-title').value.trim();
   const storyEl = document.getElementById('ct-story-editor');
   const story = storyEl ? storyEl.innerHTML : '';
-  const acEl = document.getElementById('ct-ac-editor');
-  const acceptanceCriteriaHtml = acEl ? acEl.innerHTML : '';
-  const dodEl = document.getElementById('ct-dod-editor');
-  const dodHtml = dodEl ? dodEl.innerHTML : '';
+  const guidanceEl = document.getElementById('ct-manual-guidance');
+  const guidance = guidanceEl ? guidanceEl.value.trim() : '';
 
-  return { templateId, title, story, acceptanceCriteriaHtml, dodHtml };
+  return { templateId, title, story, guidance };
 }
 
 async function generateFromManualForm(data, mode) {
@@ -196,8 +157,11 @@ async function generateFromManualForm(data, mode) {
     const activeBatch = await Storage.getActiveBatch();
     const parentTask = parentId ? (activeBatch?.tasks || []).find((t) => t.id === parentId) : null;
 
-    const userGuidance = document.getElementById('ct-manual-guidance')?.value?.trim() || '';
-    const sharedLayers = AIProvider._buildSharedPromptLayers(tpl, userGuidance);
+    const fileContent = data.fileContent || '';
+    const storyContent = data.story ? data.story.replace(/<[^>]*>/g, '').trim() : '';
+    const userInput = fileContent || storyContent || '';
+
+    const sharedLayers = AIProvider._buildSharedPromptLayers(tpl, data.guidance || '');
 
     const prompt = `${sharedLayers}Generate structured software engineering tasks from the following user input.
 
@@ -215,23 +179,15 @@ ${fieldSchema || 'No custom fields defined.'}
 
 User input:
 Title: ${data.title}
-Story / Description (HTML):
-${data.story}
-
-Acceptance Criteria (HTML):
-${data.acceptanceCriteriaHtml}
-
-Definition of Done (HTML):
-${data.dodHtml}
+${fileContent ? 'Requirement / PRD (from uploaded file):\n' + fileContent : 'Story / Description (HTML):\n' + data.story}
 
 IMPORTANT RULES:
-- BREAK DOWN the user story, acceptance criteria, and DoD to fill values for each task field listed above
-- Automatically BREAK DOWN the user input into MULTIPLE single-responsibility tasks
+- BREAK DOWN the user input into MULTIPLE single-responsibility tasks
 - For example "CRUD" must be split into separate Create, Read, Update, Delete tasks
 - For each functional requirement, consider ALL necessary layers: Backend API, Database / Slicing, Frontend consume
 - Each task must cover ONLY ONE responsibility (single-responsibility micro-task)
 - Generate minimum 2 tasks, maximum 8 tasks
-- Use the Story, Acceptance Criteria, and DoD as foundations but enrich them with technical details, edge cases, and comprehensive coverage
+- Enrich with technical details, edge cases, and comprehensive coverage
 
 CRITICAL — FIELD VALUES:
 - You MUST fill EVERY field in the "field_values" object for EACH task (parent AND children)
@@ -265,8 +221,6 @@ Return ONLY a valid JSON array (no markdown, no backticks):
   {
     "title": "[BE] [P1][High] Action-oriented title",
     "story": "Detailed user story and technical description...",
-    "acceptance_criteria": ["item1", "item2", "..."],
-    "dod": ["item1", "item2", "..."],
     "field_values": {
       "MODULE": "value from story",
       "API": "/api/v1/...",
@@ -276,8 +230,6 @@ Return ONLY a valid JSON array (no markdown, no backticks):
       {
         "title": "[FE] Consume task",
         "story": "...",
-        "acceptance_criteria": ["..."],
-        "dod": ["..."],
         "field_values": { ... }
       }
     ]
@@ -322,10 +274,7 @@ Return ONLY a valid JSON array (no markdown, no backticks):
           Object.assign(payload, item.field_values);
         }
         payload.story = item.story || data.story || '';
-        payload.acceptance_criteria = item.acceptance_criteria || data.acceptanceCriteriaHtml || '';
-        payload.dod = item.dod || data.dodHtml || '';
         if ('STORY' in emptyFields && payload.story) payload.STORY = payload.story;
-        if ('ACCEPTANCE_CRITERIA' in emptyFields && payload.acceptance_criteria) payload.ACCEPTANCE_CRITERIA = payload.acceptance_criteria;
         if ('EXPECTED_RESULT' in emptyFields && !payload.EXPECTED_RESULT) {
           const storyText = data.story ? data.story.replace(/<[^>]*>/g, '').trim() : '';
           payload.EXPECTED_RESULT = storyText ? `Hasil yang diharapkan: ${storyText.substring(0, 500)}. Semua skenario berjalan sesuai spesifikasi, mencakup success case dan error handling. Pengguna mendapatkan feedback yang jelas dan sistem berperilaku sesuai yang diharapkan.` : '—';
@@ -471,6 +420,7 @@ const PRIORITY_MAP = { 'Critical': 'urgent', 'High': 'high', 'Medium': 'medium',
 async function submitTask() {
   const data = collectFormData();
   if (!data) return;
+  data.fileContent = window._ctFileContent || '';
   await generateFromManualForm(data, 'submit');
 }
 
@@ -483,12 +433,13 @@ function resetForm() {
   if (titleEl) titleEl.value = '';
   const storyEditor = document.getElementById('ct-story-editor');
   if (storyEditor) storyEditor.innerHTML = '';
-  const acEditor = document.getElementById('ct-ac-editor');
-  if (acEditor) acEditor.innerHTML = '';
-  const dodEditor = document.getElementById('ct-dod-editor');
-  if (dodEditor) dodEditor.innerHTML = '';
   const manualGuidance = document.getElementById('ct-manual-guidance');
   if (manualGuidance) manualGuidance.value = '';
+  const fileInput = document.getElementById('ct-file-input');
+  if (fileInput) fileInput.value = '';
+  const filePreview = document.getElementById('ct-file-preview');
+  if (filePreview) filePreview.style.display = 'none';
+  window._ctFileContent = null;
 }
 
 // ===== AI MODE (MODE B) =====
@@ -499,27 +450,12 @@ function switchCTMode(mode) {
   });
 
   document.getElementById('ct-mode-manual').style.display = mode === 'manual' ? 'block' : 'none';
-  document.getElementById('ct-mode-ai').style.display = mode === 'ai' ? 'block' : 'none';
   document.getElementById('ct-mode-direct').style.display = mode === 'direct' ? 'block' : 'none';
   document.getElementById('ct-footer-manual').style.display = mode === 'manual' ? 'flex' : 'none';
-  document.getElementById('ct-footer-ai').style.display = mode === 'ai' ? 'flex' : 'none';
   document.getElementById('ct-footer-direct').style.display = mode === 'direct' ? 'flex' : 'none';
 
   const form = document.getElementById('ct-form');
   if (form) form.style.display = mode === 'direct' ? 'block' : form.style.display;
-}
-
-async function populateAITemplateDropdown() {
-  const templates = await Storage.getTemplates();
-  const select = document.getElementById('ct-ai-template');
-  if (!select) return;
-  select.innerHTML = '<option value="">— No template context —</option>';
-  (templates || []).forEach((tpl) => {
-    const opt = document.createElement('option');
-    opt.value = tpl.id;
-    opt.textContent = tpl.name;
-    select.appendChild(opt);
-  });
 }
 
 // ===== MULTI-SELECT COMPONENT =====
@@ -1118,93 +1054,6 @@ function resetDirectForm() {
   if (cancelBtn) cancelBtn.style.display = 'none';
   const submitBtn = document.getElementById('dt-submit-btn');
   if (submitBtn) submitBtn.textContent = '\u{1F4E4} Submit to Plane';
-}
-
-async function generateWithAI() {
-  const prd = document.getElementById('ct-prd').value.trim();
-  const guidance = document.getElementById('ct-ai-guidance').value.trim();
-  const tplId = document.getElementById('ct-ai-template').value;
-  const statusEl = document.getElementById('ct-ai-status');
-  const statusText = document.getElementById('ct-ai-status-text');
-  const genBtn = document.getElementById('ct-ai-generate-btn');
-
-  if (prd.length < 50) {
-    showToast('PRD minimal 50 karakter.', 'error');
-    return;
-  }
-
-  const templates = await Storage.getTemplates();
-  const template = (templates || []).find(t => t.id === tplId);
-
-  genBtn.disabled = true;
-  genBtn.textContent = 'Generating...';
-  statusEl.style.display = 'block';
-  statusText.textContent = 'AI is breaking down your requirement...';
-  showProgress('AI sedang memproses requirement...');
-
-  try {
-    const tasks = await AIProvider.breakDownPRD(prd, template, guidance);
-
-    if (!Array.isArray(tasks) || tasks.length === 0) {
-      throw new Error('AI returned empty result.');
-    }
-
-    const batch = await Storage.getActiveBatch() || {
-      batch_id: 'batch_' + Date.now(),
-      source_prd: prd.slice(0, 500),
-      tasks: []
-    };
-    if (!batch.generations) batch.generations = [];
-
-    const generationId = 'gen_' + Date.now();
-    const prdLabel = prd.length > 30 ? prd.slice(0, 30) + '...' : prd;
-    batch.generations.push({
-      id: generationId,
-      label: prdLabel || 'AI Generate',
-      timestamp: Date.now()
-    });
-
-    let aiTaskCounter = 0;
-    tasks.forEach((t) => {
-      const fullTitle = `[${t.bracket || 'TASK'}] [${t.severity || 'P3'}][${t.priority || 'Medium'}] ${t.title || 'Untitled'}`;
-      batch.tasks.push({
-        id: 'task_ai_' + Date.now() + '_' + (aiTaskCounter++) + '_' + Math.random().toString(36).slice(2, 6),
-        generation_id: generationId,
-        created_at: Date.now(),
-        parent_id: null,
-        bracket: t.bracket || '',
-        severity: t.severity || 'P3',
-        priority: t.priority || 'Medium',
-        title: t.title || '',
-        full_title: fullTitle,
-        is_selected: true,
-        payload: {
-          story: t.story || '',
-          acceptance_criteria: t.acceptance_criteria || [],
-          dod: t.dod || []
-        },
-        sync_status: 'draft'
-      });
-    });
-
-    await Storage.saveActiveBatch(batch);
-
-    statusText.textContent = `${tasks.length} tasks generated successfully!`;
-    setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
-
-    showToast(`${tasks.length} tasks generated by AI!`, 'success');
-    document.getElementById('ct-prd').value = '';
-    document.getElementById('ct-ai-guidance').value = '';
-    switchMode('batch');
-    await loadBatch();
-  } catch (err) {
-    statusText.textContent = `Error: ${err.message}`;
-    showToast(`AI generation failed: ${err.message}`, 'error');
-  } finally {
-    hideProgress();
-    genBtn.disabled = false;
-    genBtn.textContent = '\u26A1 Generate with AI';
-  }
 }
 
 // ===== AI REFINE =====
@@ -2318,6 +2167,67 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// ===== FILE UPLOAD =====
+
+window._ctFileContent = null;
+
+function handleFileSelect(file) {
+  if (!file) return;
+  const fileName = file.name;
+  const ext = fileName.split('.').pop().toLowerCase();
+  const allowedExts = ['txt', 'md', 'pdf'];
+
+  if (!allowedExts.includes(ext)) {
+    showToast('File type not supported. Use .txt, .md, or .pdf', 'error');
+    return;
+  }
+
+  document.getElementById('ct-file-name').textContent = fileName;
+  document.getElementById('ct-file-preview').style.display = 'flex';
+
+  if (ext === 'pdf') {
+    extractPdfText(file).then((text) => {
+      window._ctFileContent = text;
+    }).catch((err) => {
+      showToast('Failed to read PDF: ' + err.message, 'error');
+      window._ctFileContent = null;
+    });
+  } else {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      window._ctFileContent = e.target.result;
+    };
+    reader.onerror = () => {
+      showToast('Failed to read file.', 'error');
+      window._ctFileContent = null;
+    };
+    reader.readAsText(file);
+  }
+}
+
+function removeFile() {
+  window._ctFileContent = null;
+  document.getElementById('ct-file-input').value = '';
+  document.getElementById('ct-file-preview').style.display = 'none';
+  document.getElementById('ct-file-name').textContent = '';
+}
+
+async function extractPdfText(file) {
+  if (typeof pdfjsLib === 'undefined') {
+    throw new Error('PDF library not loaded');
+  }
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const strings = content.items.map((item) => item.str);
+    fullText += strings.join(' ') + '\n';
+  }
+  return fullText;
+}
+
 // ===== BIND EVENTS =====
 
 function initManualEditors() {
@@ -2365,11 +2275,14 @@ function initManualEditors() {
   };
 
   initEditor('ct-story-toolbar', 'ct-story-editor');
-  initEditor('ct-ac-toolbar', 'ct-ac-editor');
-  initEditor('ct-dod-toolbar', 'ct-dod-editor');
 }
 
 function bindEvents() {
+  const fileInput = document.getElementById('ct-file-input');
+  if (fileInput) fileInput.addEventListener('change', (e) => { handleFileSelect(e.target.files[0]); });
+  const fileRemove = document.getElementById('ct-file-remove');
+  if (fileRemove) fileRemove.addEventListener('click', removeFile);
+
   document.getElementById('fetch-modal-close').addEventListener('click', closeFetchModal);
   document.getElementById('fetch-search-btn').addEventListener('click', searchTasks);
   document.getElementById('fetch-keyword').addEventListener('keydown', (e) => {
@@ -2436,9 +2349,6 @@ function bindEvents() {
       switchCTMode(tab.dataset.ctMode);
     });
   });
-
-  const aiBtn = document.getElementById('ct-ai-generate-btn');
-  if (aiBtn) aiBtn.addEventListener('click', generateWithAI);
 
   document.getElementById('batch-refine-btn').addEventListener('click', showBatchRefineBar);
   document.getElementById('batch-refine-apply').addEventListener('click', applyBatchRefine);

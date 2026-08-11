@@ -108,7 +108,6 @@
         <div class="toolbar__tabs">
           <button class="toolbar__tab toolbar__tab--active" data-ct-mode="direct">Direct to Plane</button>
           <button class="toolbar__tab" data-ct-mode="manual">By Template</button>
-          <button class="toolbar__tab" data-ct-mode="ai">By Requirement (AI)</button>
         </div>
       </div>
 
@@ -153,44 +152,11 @@
           </div>
 
           <div class="form-group">
-            <label class="form-group__label">Acceptance Criteria</label>
-            <div class="editor-toolbar" id="ct-ac-toolbar">
-              <button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>
-              <button type="button" data-cmd="italic" title="Italic"><em>I</em></button>
-              <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
-              <button type="button" data-cmd="strikeThrough" title="Strike"><s>S</s></button>
-              <span class="editor-toolbar__sep"></span>
-              <button type="button" data-cmd="insertOrderedList" title="Numbered List">1.</button>
-              <button type="button" data-cmd="insertUnorderedList" title="Bullet List">•</button>
-              <span class="editor-toolbar__sep"></span>
-              <button type="button" data-cmd="createLink" title="Link">🔗</button>
-              <button type="button" data-cmd="insertTable" title="Table">⊞</button>
-              <span class="editor-toolbar__sep"></span>
-              <button type="button" data-cmd="insertHTML" data-arg="<hr>" title="Divider">—</button>
-            </div>
-            <div class="editor-wrapper">
-              <div class="editor-content" id="ct-ac-editor" contenteditable="true" data-placeholder="Enter acceptance criteria..."></div>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-group__label">Definition of Done</label>
-            <div class="editor-toolbar" id="ct-dod-toolbar">
-              <button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>
-              <button type="button" data-cmd="italic" title="Italic"><em>I</em></button>
-              <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
-              <button type="button" data-cmd="strikeThrough" title="Strike"><s>S</s></button>
-              <span class="editor-toolbar__sep"></span>
-              <button type="button" data-cmd="insertOrderedList" title="Numbered List">1.</button>
-              <button type="button" data-cmd="insertUnorderedList" title="Bullet List">•</button>
-              <span class="editor-toolbar__sep"></span>
-              <button type="button" data-cmd="insertTable" title="Table">⊞</button>
-              <button type="button" data-cmd="createLink" title="Link">🔗</button>
-              <span class="editor-toolbar__sep"></span>
-              <button type="button" data-cmd="insertHTML" data-arg="<hr>" title="Divider">—</button>
-            </div>
-            <div class="editor-wrapper">
-              <div class="editor-content" id="ct-dod-editor" contenteditable="true" data-placeholder="Enter definition of done..."></div>
+            <label class="form-group__label">Upload Requirement File <span class="hint">(opsional — .txt, .md, .pdf)</span></label>
+            <input class="form-group__input" type="file" id="ct-file-input" accept=".txt,.md,.pdf">
+            <div class="file-upload__preview" id="ct-file-preview" style="display:none">
+              <span class="file-upload__name" id="ct-file-name"></span>
+              <button class="file-upload__remove" id="ct-file-remove" type="button">&#10005;</button>
             </div>
           </div>
 
@@ -201,31 +167,6 @@
 
           <div id="ct-parent-group" style="display:none">
             <input type="hidden" id="ct-parent" value="">
-          </div>
-        </div>
-
-        <!-- ===== MODE B: BY REQUIREMENT (AI) ===== -->
-        <div id="ct-mode-ai" style="display:none">
-          <div class="form-group">
-            <label class="form-group__label" for="ct-ai-template">Template Reference <span class="hint">(opsional)</span></label>
-            <select class="form-group__input" id="ct-ai-template">
-              <option value="">— No template context —</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-group__label" for="ct-prd">PRD / Requirement <span class="required">*</span></label>
-            <textarea class="form-group__input form-group__textarea" id="ct-prd" rows="8" placeholder="Tempelkan PRD atau requirement mentah di sini... (min. 50 karakter)"></textarea>
-          </div>
-
-          <div class="form-group">
-            <label class="form-group__label" for="ct-ai-guidance">AI Custom Guidance</label>
-            <textarea class="form-group__input form-group__textarea" id="ct-ai-guidance" rows="3" placeholder="e.g. Pecah task khusus untuk tim Mobile saja"></textarea>
-          </div>
-
-          <div class="ai-status" id="ct-ai-status" style="display:none">
-            <div class="search-spinner"></div>
-            <span class="ai-status__text" id="ct-ai-status-text">AI is breaking down your requirement...</span>
           </div>
         </div>
 
@@ -333,9 +274,6 @@
         <div id="ct-footer-manual" style="display:none">
           <button class="btn btn--primary" id="ct-generate-btn">Generate Task</button>
         </div>
-        <div id="ct-footer-ai" style="display:none">
-          <button class="btn btn--primary" id="ct-ai-generate-btn">&#9889; Generate with AI</button>
-        </div>
         <div id="ct-footer-direct">
           <button class="btn btn--secondary" id="dt-cancel-btn" style="display:none">&#10005; Cancel</button>
           <button class="btn btn--primary" id="dt-submit-btn">&#128228; Submit to Plane</button>
@@ -397,6 +335,8 @@
   <script src="../utils/storage.js"></script>
   <script src="../utils/plane-api.js"></script>
   <script src="../utils/ai-provider.js"></script>
+  <script src="../utils/pdf.min.js"></script>
+  <script>pdfjsLib.GlobalWorkerOptions.workerSrc = '../utils/pdf.worker.min.js';</script>
   <script src="app.js"></script>
 </body>
 </html>

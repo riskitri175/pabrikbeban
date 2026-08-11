@@ -1421,3 +1421,36 @@ body {
   margin: 8px 0;
   color: #64748b;
 }
+
+.file-upload__preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.file-upload__name {
+  flex: 1;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-upload__remove {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+}
+
+.file-upload__remove:hover {
+  color: #ef4444;
+}
