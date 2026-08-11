@@ -2370,7 +2370,6 @@ function initManualEditors() {
 }
 
 function bindEvents() {
-  document.getElementById('fetch-external-btn').addEventListener('click', openFetchModal);
   document.getElementById('fetch-modal-close').addEventListener('click', closeFetchModal);
   document.getElementById('fetch-search-btn').addEventListener('click', searchTasks);
   document.getElementById('fetch-keyword').addEventListener('keydown', (e) => {
