@@ -195,6 +195,11 @@
             </div>
           </div>
 
+          <div class="form-group">
+            <label class="form-group__label" for="ct-manual-guidance">AI Guidance <span class="hint">(opsional — instruksi tambahan untuk AI)</span></label>
+            <textarea class="form-group__input form-group__textarea" id="ct-manual-guidance" rows="3" placeholder="e.g. Pecah task khusus untuk tim backend"></textarea>
+          </div>
+
           <div id="ct-parent-group" style="display:none">
             <input type="hidden" id="ct-parent" value="">
           </div>
@@ -202,7 +207,27 @@
 
         <!-- ===== MODE B: BY REQUIREMENT (AI) ===== -->
         <div id="ct-mode-ai" style="display:none">
-          ...
+          <div class="form-group">
+            <label class="form-group__label" for="ct-ai-template">Template Reference <span class="hint">(opsional)</span></label>
+            <select class="form-group__input" id="ct-ai-template">
+              <option value="">— No template context —</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label" for="ct-prd">PRD / Requirement <span class="required">*</span></label>
+            <textarea class="form-group__input form-group__textarea" id="ct-prd" rows="8" placeholder="Tempelkan PRD atau requirement mentah di sini... (min. 50 karakter)"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-group__label" for="ct-ai-guidance">AI Custom Guidance</label>
+            <textarea class="form-group__input form-group__textarea" id="ct-ai-guidance" rows="3" placeholder="e.g. Pecah task khusus untuk tim Mobile saja"></textarea>
+          </div>
+
+          <div class="ai-status" id="ct-ai-status" style="display:none">
+            <div class="search-spinner"></div>
+            <span class="ai-status__text" id="ct-ai-status-text">AI is breaking down your requirement...</span>
+          </div>
         </div>
 
         <!-- ===== MODE C: DIRECT TO PLANE ===== -->
@@ -352,6 +377,20 @@
       <div class="modal__footer">
         <button class="btn btn--primary" id="fetch-search-btn">Search</button>
         <button class="btn btn--secondary" id="fetch-import-btn" disabled>Import to Workspace</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PROGRESS MODAL ===== -->
+  <div class="modal-overlay" id="progress-modal">
+    <div class="modal modal--progress">
+      <div class="modal__body modal__body--progress">
+        <div class="progress-spinner"></div>
+        <p class="progress-text" id="progress-text">Generating tasks...</p>
+        <div class="progress-bar">
+          <div class="progress-bar__fill" id="progress-bar-fill"></div>
+        </div>
+        <span class="progress-pct" id="progress-pct">0%</span>
       </div>
     </div>
   </div>

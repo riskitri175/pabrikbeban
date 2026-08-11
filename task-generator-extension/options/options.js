@@ -1,12 +1,9 @@
 let currentSettings = null;
 let editingWorkspaceId = null;
-let editingTemplateId = null;
 let fetchedProjects = [];
-let currentTemplates = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
-  await loadTemplates();
   renderWorkspaceTable();
   bindEvents();
 });
@@ -218,191 +215,6 @@ async function deleteWorkspace(id) {
   saveAllSettings();
 }
 
-// === Template Manager ===
-
-async function loadTemplates() {
-  currentTemplates = await Storage.getTemplates() || [];
-  renderTemplateTable();
-}
-
-function renderTemplateTable() {
-  const tbody = document.getElementById('template-table-body');
-  const empty = document.getElementById('template-empty');
-
-  tbody.innerHTML = '';
-
-  if (currentTemplates.length === 0) {
-    empty.style.display = 'block';
-    return;
-  }
-
-  empty.style.display = 'none';
-
-  currentTemplates.forEach((tpl) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><strong>${escapeHtml(tpl.name)}</strong></td>
-      <td>${escapeHtml(tpl.category)}</td>
-      <td>${tpl.fields.length} fields</td>
-      <td>
-        <button class="btn btn--secondary btn--sm template-edit" data-id="${tpl.id}">Edit</button>
-        <button class="btn btn--danger btn--sm template-delete" data-id="${tpl.id}">Delete</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  tbody.querySelectorAll('.template-edit').forEach((btn) => {
-    btn.addEventListener('click', () => openEditTemplate(btn.dataset.id));
-  });
-  tbody.querySelectorAll('.template-delete').forEach((btn) => {
-    btn.addEventListener('click', () => deleteTemplate(btn.dataset.id));
-  });
-}
-
-function openAddTemplate() {
-  editingTemplateId = null;
-  document.getElementById('template-modal-title').textContent = 'Add Template';
-  document.getElementById('template-name').value = '';
-  document.getElementById('template-category').value = 'General';
-  document.getElementById('field-list').innerHTML = '';
-  addFieldRow();
-  document.getElementById('template-modal').classList.add('modal-overlay--open');
-}
-
-function openEditTemplate(id) {
-  const tpl = currentTemplates.find((t) => t.id === id);
-  if (!tpl) return;
-
-  editingTemplateId = id;
-  document.getElementById('template-modal-title').textContent = 'Edit Template';
-  document.getElementById('template-name').value = tpl.name;
-  document.getElementById('template-category').value = tpl.category;
-  document.getElementById('field-list').innerHTML = '';
-
-  tpl.fields.forEach((field) => addFieldRow(field));
-  if (tpl.fields.length === 0) addFieldRow();
-
-  document.getElementById('template-modal').classList.add('modal-overlay--open');
-}
-
-function closeTemplateModal() {
-  document.getElementById('template-modal').classList.remove('modal-overlay--open');
-}
-
-function addFieldRow(field) {
-  const container = document.getElementById('field-list');
-  const row = document.createElement('div');
-  row.className = 'field-row';
-
-  const key = field?.key || '';
-  const label = field?.label || '';
-  const type = field?.type || 'text';
-  const constraint = field?.constraint || 'mandatory';
-
-  row.innerHTML = `
-    <div>
-      <span class="field-row__label">Label</span>
-      <input class="form-group__input field-label" type="text" value="${escapeHtml(label)}" maxlength="50" placeholder="e.g. Figma Link">
-    </div>
-    <div>
-      <span class="field-row__label">Key</span>
-      <input class="form-group__input field-key" type="text" value="${escapeHtml(key)}" placeholder="figma_link" pattern="^[a-z0-9_]+$">
-    </div>
-    <div>
-      <span class="field-row__label">Type</span>
-      <select class="form-group__input field-type">
-        <option value="text" ${type === 'text' ? 'selected' : ''}>Text</option>
-        <option value="rich_text" ${type === 'rich_text' ? 'selected' : ''}>Rich Text</option>
-        <option value="dropdown" ${type === 'dropdown' ? 'selected' : ''}>Dropdown</option>
-        <option value="checkbox_list" ${type === 'checkbox_list' ? 'selected' : ''}>Checkbox List</option>
-        <option value="url" ${type === 'url' ? 'selected' : ''}>URL</option>
-      </select>
-    </div>
-    <div>
-      <span class="field-row__label">Constraint</span>
-      <select class="form-group__input field-constraint">
-        <option value="mandatory" ${constraint === 'mandatory' ? 'selected' : ''}>Mandatory</option>
-        <option value="optional" ${constraint === 'optional' ? 'selected' : ''}>Optional</option>
-        <option value="ai_generated" ${constraint === 'ai_generated' ? 'selected' : ''}>AI-Generated</option>
-        <option value="fixed_input" ${constraint === 'fixed_input' ? 'selected' : ''}>Fixed Input</option>
-      </select>
-    </div>
-    <button class="field-row__remove" title="Remove field">&times;</button>
-  `;
-
-  const labelInput = row.querySelector('.field-label');
-  const keyInput = row.querySelector('.field-key');
-
-  labelInput.addEventListener('input', () => {
-    if (!editingTemplateId || !keyInput.value) {
-      keyInput.value = slugify(labelInput.value);
-    }
-  });
-
-  row.querySelector('.field-row__remove').addEventListener('click', () => {
-    row.remove();
-  });
-
-  container.appendChild(row);
-}
-
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '');
-}
-
-function getFieldData() {
-  const rows = document.querySelectorAll('.field-row');
-  return Array.from(rows).map((row) => ({
-    label: row.querySelector('.field-label').value.trim(),
-    key: row.querySelector('.field-key').value.trim(),
-    type: row.querySelector('.field-type').value,
-    constraint: row.querySelector('.field-constraint').value
-  })).filter((f) => f.label && f.key);
-}
-
-function saveTemplate() {
-  const name = document.getElementById('template-name').value.trim();
-  const category = document.getElementById('template-category').value;
-  const fields = getFieldData();
-
-  if (!name) {
-    alert('Template name is required.');
-    return;
-  }
-
-  if (fields.length === 0) {
-    alert('At least one field is required.');
-    return;
-  }
-
-  if (editingTemplateId) {
-    const index = currentTemplates.findIndex((t) => t.id === editingTemplateId);
-    if (index !== -1) {
-      currentTemplates[index] = { id: editingTemplateId, name, category, fields };
-    }
-  } else {
-    const newId = 'tpl_' + slugify(name) + '_' + Date.now();
-    currentTemplates.push({ id: newId, name, category, fields });
-  }
-
-  Storage.saveTemplates(currentTemplates);
-  renderTemplateTable();
-  closeTemplateModal();
-}
-
-async function deleteTemplate(id) {
-  if (!confirm('Delete this template?')) return;
-  currentTemplates = currentTemplates.filter((t) => t.id !== id);
-  await Storage.saveTemplates(currentTemplates);
-  renderTemplateTable();
-}
-
 // === Save Settings ===
 
 async function saveAllSettings() {
@@ -547,14 +359,6 @@ function bindEvents() {
     if (e.target === e.currentTarget) closeModal();
   });
 
-  document.getElementById('add-template-btn').addEventListener('click', openAddTemplate);
-  document.getElementById('add-field-btn').addEventListener('click', () => addFieldRow());
-  document.getElementById('template-modal-save').addEventListener('click', saveTemplate);
-  document.getElementById('template-modal-cancel').addEventListener('click', closeTemplateModal);
-  document.getElementById('template-modal-close').addEventListener('click', closeTemplateModal);
-  document.getElementById('template-modal').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) closeTemplateModal();
-  });
 }
 
 function togglePassword(inputId, btnId) {

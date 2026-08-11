@@ -370,7 +370,7 @@ const PlaneAPI = {
     ];
   },
 
-  async createIssuesBulk(tasks) {
+  async createIssuesBulk(tasks, onProgress) {
     const config = await this._getConfig();
     const url = `${config.baseUrl}/api/v1/workspaces/${config.workspace}/projects/${config.project}/issues/`;
     const results = [];
@@ -391,15 +391,18 @@ const PlaneAPI = {
       } catch (err) {
         results.push({ task, status: 'failed', error: err.message });
       }
+      if (onProgress) onProgress(results.length, tasks.length);
     }
 
     return results;
   },
 
-  async createHierarchicalBatch(taskGroups) {
+  async createHierarchicalBatch(taskGroups, onProgress) {
     const createdParents = [];
 
     const mapPrio = (p) => _PRIORITY_MAP[p] || p?.toLowerCase() || 'medium';
+    const totalTasks = taskGroups.reduce((sum, g) => sum + 1 + g.children.length, 0);
+    let completed = 0;
 
     for (const group of taskGroups) {
       const parentPayload = {
@@ -410,6 +413,8 @@ const PlaneAPI = {
 
       const parentResult = await this.createIssue(parentPayload);
       const parentId = parentResult.id;
+      completed++;
+      if (onProgress) onProgress(completed, totalTasks);
 
       const childPayloads = group.children.map((child) => ({
         name: child.full_title || child.title,
@@ -418,7 +423,10 @@ const PlaneAPI = {
         parent: parentId
       }));
 
-      const childResults = await this.createIssuesBulk(childPayloads);
+      const childResults = await this.createIssuesBulk(childPayloads, (childDone) => {
+        if (onProgress) onProgress(completed + childDone, totalTasks);
+      });
+      completed += childResults.length;
 
       createdParents.push({
         parent: { data: parentResult, task: group.parent },
@@ -431,23 +439,21 @@ const PlaneAPI = {
 
   _buildDescriptionHtml(task) {
     const parts = [];
+    const payload = task.payload || {};
+    const fieldOrder = task._fieldOrder || [];
 
-    if (task.payload?.story) {
-      parts.push(`<h3>User Story</h3><p>${this._escapeHtml(task.payload.story)}</p>`);
+    let entries = Object.entries(payload).filter(([k]) =>
+      !['story', 'acceptance_criteria', 'dod'].includes(k) && k !== '0'
+    );
+
+    if (fieldOrder.length > 0) {
+      const orderMap = {};
+      fieldOrder.forEach((k, i) => { orderMap[k] = i; });
+      entries.sort((a, b) => (orderMap[a[0]] ?? 999) - (orderMap[b[0]] ?? 999));
     }
 
-    if (task.payload?.acceptance_criteria?.length) {
-      const items = task.payload.acceptance_criteria.map((ac) => `<li>${this._escapeHtml(ac)}</li>`).join('');
-      parts.push(`<h3>Acceptance Criteria</h3><ul>${items}</ul>`);
-    }
-
-    if (task.payload?.dod?.length) {
-      const items = task.payload.dod.map((d) => `<li>${this._escapeHtml(d)}</li>`).join('');
-      parts.push(`<h3>Definition of Done</h3><ul>${items}</ul>`);
-    }
-
-    for (const [key, value] of Object.entries(task.payload || {})) {
-      if (!['story', 'acceptance_criteria', 'dod'].includes(key) && value) {
+    for (const [key, value] of entries) {
+      if (value) {
         parts.push(`<p><strong>${this._escapeHtml(key)}:</strong> ${this._escapeHtml(String(value))}</p>`);
       }
     }

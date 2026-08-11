@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Template Manager — AI Task Generator</title>
   <link rel="stylesheet" href="templates.css">
 </head>
+
 <body>
 
   <!-- ===== VIEW 1: TEMPLATE LIST ===== -->
@@ -52,7 +54,8 @@
 
     <div class="builder__name-bar">
       <label class="builder__name-label" for="tpl-name">Template Name</label>
-      <input class="builder__name-input" type="text" id="tpl-name" maxlength="50" placeholder="e.g. Backend API Implementation">
+      <input class="builder__name-input" type="text" id="tpl-name" maxlength="50"
+        placeholder="e.g. Backend API Implementation">
     </div>
 
     <div class="builder__split">
@@ -64,11 +67,13 @@
           <h3 class="builder-section__title">Header (Title Format)</h3>
 
           <div class="form-group" id="bracket-options-group">
-            <label class="form-group__label">Bracket Options <span class="hint">(pilih bracket yang tersedia)</span></label>
+            <label class="form-group__label">Bracket Options <span class="hint">(pilih bracket yang
+                tersedia)</span></label>
             <div class="multi-select" id="bracket-multiselect"></div>
           </div>
 
-          <button class="btn btn--secondary btn--sm" id="cb-open-modal" style="margin-bottom:14px">+ Add Custom Bracket</button>
+          <button class="btn btn--secondary btn--sm" id="cb-open-modal" style="margin-bottom:14px">+ Add Custom
+            Bracket</button>
 
           <div class="form-group" id="custom-labels-group" style="display:none">
             <label class="form-group__label">Custom Labels</label>
@@ -88,7 +93,8 @@
 
           <div class="form-group" style="display:none">
             <label class="form-group__label" for="header-title">Task Title</label>
-            <input class="form-group__input" type="text" id="header-title" placeholder="e.g. Create Voucher Redemption API">
+            <input class="form-group__input" type="text" id="header-title"
+              placeholder="e.g. Create Voucher Redemption API">
           </div>
 
           <div class="title-result" id="title-result">—</div>
@@ -98,10 +104,12 @@
         <section class="builder-section">
           <h3 class="builder-section__title">Task Fields</h3>
           <div class="form-group">
-            <label class="form-group__label">Standard Fields <span class="hint">(pilih field yang akan muncul)</span></label>
+            <label class="form-group__label">Standard Fields <span class="hint">(pilih field yang akan
+                muncul)</span></label>
             <div class="multi-select" id="field-multiselect"></div>
           </div>
-          <button class="btn btn--secondary btn--sm" id="cf-open-modal" style="margin-bottom:14px">+ Add Custom Field</button>
+          <button class="btn btn--secondary btn--sm" id="cf-open-modal" style="margin-bottom:14px">+ Add Custom
+            Field</button>
           <div class="form-group">
             <label class="form-group__label">Field Format <span class="hint">(drag to reorder)</span></label>
             <div class="segment-list" id="field-segment-list"></div>
@@ -142,21 +150,23 @@
               <button type="button" data-cmd="insertTable" title="Table">⊞</button>
             </div>
             <div class="editor-wrapper">
-              <div class="editor-content" id="er-editor" contenteditable="true" data-placeholder="e.g. Semua task harus mencakup implementasi backend API, validasi input, error handling, unit testing, dan dokumentasi API."></div>
+              <div class="editor-content" id="er-editor" contenteditable="true"
+                data-placeholder="e.g. Semua task harus mencakup implementasi backend API, validasi input, error handling, unit testing, dan dokumentasi API.">
+              </div>
             </div>
           </div>
         </section>
       </div>
 
-       <!-- RIGHT PANEL: PREVIEW -->
-       <div class="builder__right">
-         <div class="preview">
-           <h3 class="preview__heading">Form Preview</h3>
-           <div class="preview__body" id="preview-form">
-             <p class="preview__empty">Select fields to see preview.</p>
-           </div>
-         </div>
-       </div>
+      <!-- RIGHT PANEL: PREVIEW -->
+      <div class="builder__right">
+        <div class="preview">
+          <h3 class="preview__heading">Form Preview</h3>
+          <div class="preview__body" id="preview-form">
+            <p class="preview__empty">Select fields to see preview.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -194,7 +204,8 @@
       <div class="modal__body">
         <div class="form-group">
           <label class="form-group__label">Value <span class="required">*</span></label>
-          <input class="form-group__input" type="text" id="cb-value" placeholder="e.g. DEVOPS" maxlength="20" style="text-transform:uppercase;font-family:monospace">
+          <input class="form-group__input" type="text" id="cb-value" placeholder="e.g. DEVOPS" maxlength="20"
+            style="text-transform:uppercase;font-family:monospace">
         </div>
         <div class="form-group">
           <label class="form-group__label">Label <span class="hint">(opsional)</span></label>
@@ -202,7 +213,8 @@
         </div>
         <div class="form-group">
           <label class="form-group__label">Description <span class="hint">(opsional)</span></label>
-          <textarea class="form-group__input" id="cb-desc" placeholder="Description" maxlength="100" rows="2"></textarea>
+          <textarea class="form-group__input" id="cb-desc" placeholder="Description" maxlength="100"
+            rows="2"></textarea>
         </div>
       </div>
       <div class="modal__footer">
@@ -222,7 +234,8 @@
       <div class="modal__body">
         <div class="form-group">
           <label class="form-group__label">Key <span class="required">*</span></label>
-          <input class="form-group__input" type="text" id="cf-value" placeholder="e.g. design_review" maxlength="30" style="text-transform:uppercase;font-family:monospace">
+          <input class="form-group__input" type="text" id="cf-value" placeholder="e.g. design_review" maxlength="30"
+            style="text-transform:uppercase;font-family:monospace">
         </div>
         <div class="form-group">
           <label class="form-group__label">Label <span class="hint">(opsional)</span></label>
@@ -230,12 +243,34 @@
         </div>
         <div class="form-group">
           <label class="form-group__label">Description <span class="hint">(opsional)</span></label>
-          <textarea class="form-group__input" id="cf-desc" placeholder="Deskripsi field" maxlength="100" rows="2"></textarea>
+          <textarea class="form-group__input" id="cf-desc" placeholder="Deskripsi field" maxlength="100"
+            rows="2"></textarea>
         </div>
       </div>
       <div class="modal__footer">
         <button class="btn btn--secondary" id="cf-modal-cancel">Cancel</button>
         <button class="btn btn--primary" id="cf-modal-add">Add Field</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== DELETE CONFIRM MODAL ===== -->
+  <div class="modal-overlay" id="delete-modal">
+    <div class="modal modal--sm">
+      <div class="modal__header">
+        <h3 class="modal__title">Delete Template</h3>
+        <button class="modal__close" id="delete-modal-close">&times;</button>
+      </div>
+      <div class="modal__body">
+        <p style="font-size:14px;color:#475569;line-height:1.6">
+          Are you sure you want to delete <strong id="delete-modal-name"></strong>?
+          <br>
+          <span style="color:#ef4444;font-weight:600">This action cannot be undone.</span>
+        </p>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" id="delete-modal-cancel">Cancel</button>
+        <button class="btn btn--danger" id="delete-modal-confirm">Delete</button>
       </div>
     </div>
   </div>
@@ -246,4 +281,5 @@
   <script src="../utils/storage.js"></script>
   <script src="templates.js"></script>
 </body>
+
 </html>

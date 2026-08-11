@@ -171,6 +171,7 @@ async function generateFromManualForm(data, mode) {
 
   const btn = document.getElementById(mode === 'draft' ? 'ct-save-draft' : 'ct-preview-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
+  showProgress('AI sedang memproses task...');
 
   try {
     const templates = await Storage.getTemplates();
@@ -198,7 +199,10 @@ async function generateFromManualForm(data, mode) {
     const activeBatch = await Storage.getActiveBatch();
     const parentTask = parentId ? (activeBatch?.tasks || []).find((t) => t.id === parentId) : null;
 
-    const prompt = `Generate structured software engineering tasks from the following user input.
+    const userGuidance = document.getElementById('ct-manual-guidance')?.value?.trim() || '';
+    const sharedLayers = AIProvider._buildSharedPromptLayers(tpl, userGuidance);
+
+    const prompt = `${sharedLayers}Generate structured software engineering tasks from the following user input.
 
 Template format context:
 - Title segments (brackets): ${bracketOptions.join(', ') || 'None'}
@@ -236,13 +240,18 @@ CRITICAL — FIELD VALUES:
 - You MUST fill EVERY field in the "field_values" object for EACH task (parent AND children)
 - Do NOT leave ANY field empty — generate appropriate content for every field
 - Even if the user's input doesn't explicitly mention a field, derive it intelligently from context
+- For values that need multiple items (e.g., parameters, steps, options), use bullet format:
+  Use "- " prefix for each bullet item, one per line, like:
+  - Item one
+  - Item two
+  - Item three
 - EXAMPLES:
-   - EXPECTED_RESULT: write a DETAILED expected outcome (3-5 sentences describing the end-to-end expected behavior, including success criteria and user impact)
-   - STORY: always include the user story content relevant to this task
-   - PARAMETER: derive API parameters from the described functionality
-   - FIGMA_LINK: extract Figma/design URL from description, or write "—" if none
-   - URL_DOCUMENT: extract doc URL from description, or write "—" if none
-   - API: derive the endpoint URL from context
+  - PARAMETER: write each parameter on a separate line with "- " prefix
+  - EXPECTED_RESULT: write a DETAILED expected outcome (3-5 sentences)
+  - STORY: always include the user story content relevant to this task
+  - FIGMA_LINK: extract Figma/design URL from description, or write "—" if none
+  - URL_DOCUMENT: extract doc URL from description, or write "—" if none
+  - API: derive the endpoint URL from context
 - For dropdown fields, ONLY use values from the allowed options list.
 - For checkbox_list fields, use zero or more values from the allowed options list.
 
@@ -352,11 +361,79 @@ Return ONLY a valid JSON array (no markdown, no backticks):
   } catch (err) {
     showToast(`Gagal generate: ${err.message}`, 'error');
   } finally {
+    hideProgress();
     if (btn) { btn.disabled = false; btn.textContent = mode === 'draft' ? 'Save Draft' : 'Submit to Plane'; }
   }
 }
 
 // ===== TOAST =====
+
+let _progressInterval = null;
+
+function showProgress(text) {
+  const overlay = document.getElementById('progress-modal');
+  const textEl = document.getElementById('progress-text');
+  const fillEl = document.getElementById('progress-bar-fill');
+  const pctEl = document.getElementById('progress-pct');
+
+  if (textEl) textEl.textContent = text || 'Generating tasks...';
+  if (fillEl) fillEl.style.width = '0%';
+  if (pctEl) pctEl.textContent = '0%';
+  if (overlay) overlay.classList.add('modal-overlay--open');
+
+  if (_progressInterval) clearInterval(_progressInterval);
+  let progress = 0;
+  _progressInterval = setInterval(() => {
+    const increment = Math.max(1, 10 - Math.floor(progress / 10));
+    progress = Math.min(90, progress + increment);
+    if (fillEl) fillEl.style.width = progress + '%';
+    if (pctEl) pctEl.textContent = progress + '%';
+    if (progress >= 90) clearInterval(_progressInterval);
+  }, 250);
+}
+
+function hideProgress() {
+  const overlay = document.getElementById('progress-modal');
+  const fillEl = document.getElementById('progress-bar-fill');
+  const pctEl = document.getElementById('progress-pct');
+
+  if (_progressInterval) {
+    clearInterval(_progressInterval);
+    _progressInterval = null;
+  }
+
+  if (fillEl) fillEl.style.width = '100%';
+  if (pctEl) pctEl.textContent = '100%';
+
+  setTimeout(() => {
+    if (overlay) overlay.classList.remove('modal-overlay--open');
+  }, 400);
+}
+
+function showSubmitModal(total) {
+  const overlay = document.getElementById('progress-modal');
+  const textEl = document.getElementById('progress-text');
+  const fillEl = document.getElementById('progress-bar-fill');
+  const pctEl = document.getElementById('progress-pct');
+
+  if (_progressInterval) {
+    clearInterval(_progressInterval);
+    _progressInterval = null;
+  }
+
+  if (textEl) textEl.textContent = 'Submitting tasks to Plane...';
+  if (fillEl) fillEl.style.width = '0%';
+  if (pctEl) pctEl.textContent = '0/' + total;
+  if (overlay) overlay.classList.add('modal-overlay--open');
+}
+
+function updateSubmitProgress(current, total) {
+  const fillEl = document.getElementById('progress-bar-fill');
+  const pctEl = document.getElementById('progress-pct');
+  const pct = Math.round((current / total) * 100);
+  if (fillEl) fillEl.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = current + '/' + total;
+}
 
 function showToast(message, type) {
   const existing = document.querySelector('.toast');
@@ -397,6 +474,8 @@ function resetForm() {
   if (acEditor) acEditor.innerHTML = '';
   const dodEditor = document.getElementById('ct-dod-editor');
   if (dodEditor) dodEditor.innerHTML = '';
+  const manualGuidance = document.getElementById('ct-manual-guidance');
+  if (manualGuidance) manualGuidance.value = '';
 }
 
 // ===== AI MODE (MODE B) =====
@@ -1043,6 +1122,7 @@ async function generateWithAI() {
   genBtn.textContent = 'Generating...';
   statusEl.style.display = 'block';
   statusText.textContent = 'AI is breaking down your requirement...';
+  showProgress('AI sedang memproses requirement...');
 
   try {
     const tasks = await AIProvider.breakDownPRD(prd, template, guidance);
@@ -1092,6 +1172,7 @@ async function generateWithAI() {
     statusText.textContent = `Error: ${err.message}`;
     showToast(`AI generation failed: ${err.message}`, 'error');
   } finally {
+    hideProgress();
     genBtn.disabled = false;
     genBtn.textContent = '\u26A1 Generate with AI';
   }
@@ -1122,6 +1203,7 @@ async function applyBatchRefine() {
   const refineBtn = document.getElementById('batch-refine-apply');
   refineBtn.disabled = true;
   refineBtn.textContent = 'Refining...';
+  showProgress('AI sedang merefine task...');
 
   try {
     const results = await AIProvider.refineBulk(selected, instruction);
@@ -1144,6 +1226,7 @@ async function applyBatchRefine() {
   } catch (err) {
     showToast(`Refine failed: ${err.message}`, 'error');
   } finally {
+    hideProgress();
     refineBtn.disabled = false;
     refineBtn.textContent = 'Apply';
   }
@@ -1746,7 +1829,7 @@ function renderTaskCard(task, fieldOrder) {
           return `<div class="task-card__section">
             <div class="task-card__section-title">Task Fields</div>
             <div class="task-card__field-values">${entries.map(([k, v]) =>
-              `<div class="task-card__field-row"><span class="task-card__field-key">${escapeHtml(k)}</span><span class="task-card__field-value">${escapeHtml(Array.isArray(v) ? v.join(', ') : String(v))}</span></div>`
+              `<div class="task-card__field-row"><span class="task-card__field-key">${escapeHtml(k)}</span><span class="task-card__field-value">${formatFieldValue(v)}</span></div>`
             ).join('')}</div>
           </div>`;
         })()}
@@ -1857,6 +1940,7 @@ function bindBatchEvents(tasks) {
 
       btn.disabled = true;
       btn.textContent = '...';
+      showProgress('AI sedang merefine task...');
       try {
         const result = await AIProvider.refine(task, instruction);
         if (result.story) task.payload.story = result.story;
@@ -1870,6 +1954,7 @@ function bindBatchEvents(tasks) {
       } catch (err) {
         showToast(`Refine failed: ${err.message}`, 'error');
       } finally {
+        hideProgress();
         btn.disabled = false;
         btn.textContent = 'Refine';
       }
@@ -1942,6 +2027,7 @@ async function submitSelectedTasks() {
   const submitBtn = document.getElementById('batch-submit-btn');
   submitBtn.disabled = true;
   submitBtn.textContent = 'Submitting...';
+  showSubmitModal(selected.length);
 
   try {
     const parents = selected.filter(t => !t.parent_id);
@@ -1957,7 +2043,11 @@ async function submitSelectedTasks() {
 
       const orphans = children.filter(c => !parents.some(p => p.id === c.parent_id));
 
-      const results = await PlaneAPI.createHierarchicalBatch(taskGroups);
+      let done = 0;
+      const results = await PlaneAPI.createHierarchicalBatch(taskGroups, (completed) => {
+        updateSubmitProgress(completed, selected.length);
+        done = completed;
+      });
       let totalCreated = results.reduce((sum, g) => sum + 1 + g.children.filter(r => r.status === 'created').length, 0);
 
       if (orphans.length > 0) {
@@ -1966,7 +2056,9 @@ async function submitSelectedTasks() {
           description_html: PlaneAPI._buildDescriptionHtml(task),
           priority: PRIORITY_MAP[task.priority] || 'medium'
         }));
-        const orphanResults = await PlaneAPI.createIssuesBulk(orphanPayloads);
+        const orphanResults = await PlaneAPI.createIssuesBulk(orphanPayloads, (childDone) => {
+          updateSubmitProgress(done + childDone, selected.length);
+        });
         const orphanCreated = orphanResults.filter(r => r.status === 'created').length;
         totalCreated += orphanCreated;
         showToast(`${totalCreated} tasks created (${orphanCreated} orphans as flat).`, 'success');
@@ -1980,7 +2072,9 @@ async function submitSelectedTasks() {
         priority: PRIORITY_MAP[task.priority] || 'medium'
       }));
 
-      const results = await PlaneAPI.createIssuesBulk(payloads);
+      const results = await PlaneAPI.createIssuesBulk(payloads, (completed) => {
+        updateSubmitProgress(completed, selected.length);
+      });
       const created = results.filter(r => r.status === 'created').length;
       const failed = results.filter(r => r.status === 'failed').length;
 
@@ -1997,12 +2091,36 @@ async function submitSelectedTasks() {
   } catch (err) {
     showToast(`Gagal submit batch: ${err.message}`, 'error');
   } finally {
+    hideProgress();
     submitBtn.disabled = false;
     submitBtn.textContent = 'Submit Selected';
   }
 }
 
 // ===== HELPERS =====
+
+function formatFieldValue(value) {
+  if (value === null || value === undefined) return '—';
+  const text = Array.isArray(value) ? value.join(', ') : String(value);
+  const lines = text.split('\n');
+  const hasBullets = lines.some((l) => l.trim().startsWith('- '));
+  if (!hasBullets) return escapeHtml(text);
+
+  let html = '';
+  let inList = false;
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- ')) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += '<li>' + escapeHtml(trimmed.substring(2)) + '</li>';
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (trimmed) html += escapeHtml(line) + '<br>';
+    }
+  });
+  if (inList) html += '</ul>';
+  return html;
+}
 
 function escapeHtml(text) {
   if (!text) return '';

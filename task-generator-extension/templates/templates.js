@@ -1,6 +1,9 @@
+const DEFAULT_TEMPLATE_IDS = new Set(['tpl_backend_api', 'tpl_ui_ux', 'tpl_bug_fix']);
+
 let currentTemplates = [];
 let editingTemplateId = null;
 let importData = null;
+let deleteTargetId = null;
 let builderSegments = [];
 let builderCustomLabels = [];
 let builderFields = [];
@@ -145,6 +148,7 @@ function renderTemplateGrid() {
       </div>
       <div class="template-card__footer">
         <button class="btn btn--secondary btn--sm" data-action="edit" data-id="${tpl.id}">Edit</button>
+        ${DEFAULT_TEMPLATE_IDS.has(tpl.id) ? '' : `<button class="btn btn--danger btn--sm" data-action="delete" data-id="${tpl.id}">Delete</button>`}
       </div>
     `;
     grid.appendChild(card);
@@ -168,7 +172,7 @@ function renderTemplateGrid() {
     btn.addEventListener('click', () => exportTemplate(btn.dataset.id));
   });
   grid.querySelectorAll('[data-action="delete"]').forEach((btn) => {
-    btn.addEventListener('click', () => deleteTemplate(btn.dataset.id));
+    btn.addEventListener('click', () => openDeleteModal(btn.dataset.id));
   });
 }
 
@@ -211,12 +215,25 @@ function exportTemplate(id) {
   showToast('Template exported.', 'success');
 }
 
-async function deleteTemplate(id) {
+function openDeleteModal(id) {
   closeAllDropdowns();
-  if (!confirm('Delete this template?')) return;
-  currentTemplates = currentTemplates.filter((t) => t.id !== id);
+  deleteTargetId = id;
+  const tpl = currentTemplates.find((t) => t.id === id);
+  document.getElementById('delete-modal-name').textContent = tpl ? escapeHtml(tpl.name) : 'this template';
+  document.getElementById('delete-modal').classList.add('modal-overlay--open');
+}
+
+function closeDeleteModal() {
+  deleteTargetId = null;
+  document.getElementById('delete-modal').classList.remove('modal-overlay--open');
+}
+
+async function confirmDeleteTemplate() {
+  if (!deleteTargetId) return;
+  currentTemplates = currentTemplates.filter((t) => t.id !== deleteTargetId);
   await Storage.saveTemplates(currentTemplates);
   renderTemplateGrid();
+  closeDeleteModal();
   showToast('Template deleted.', 'info');
 }
 
@@ -1264,6 +1281,13 @@ function bindListEvents() {
     if (!e.target.closest('.template-card__more')) {
       closeAllDropdowns();
     }
+  });
+
+  document.getElementById('delete-modal-confirm').addEventListener('click', confirmDeleteTemplate);
+  document.getElementById('delete-modal-cancel').addEventListener('click', closeDeleteModal);
+  document.getElementById('delete-modal-close').addEventListener('click', closeDeleteModal);
+  document.getElementById('delete-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeDeleteModal();
   });
 }
 
