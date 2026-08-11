@@ -101,11 +101,11 @@
     <div class="panel panel--create">
       <header class="header panel__header">
         <div class="header__info">
-          <h2 class="header__title header__title--sm">Create Task</h2>
+          <h2 class="header__title header__title--sm" id="create-panel-title">Create Task</h2>
         </div>
       </header>
 
-      <div class="toolbar" style="padding:8px 20px">
+      <div class="toolbar" id="ct-tabbar" style="padding:8px 20px">
         <div class="toolbar__tabs">
           <button class="toolbar__tab toolbar__tab--active" data-ct-mode="direct">Direct to Plane</button>
           <button class="toolbar__tab" data-ct-mode="manual">By Template</button>
@@ -130,7 +130,7 @@
           </div>
 
           <div class="form-group">
-            <label class="form-group__label" for="ct-story-editor">Story / Description <span class="required">*</span></label>
+            <label class="form-group__label" for="ct-story-editor">Story / Description</label>
             <div class="editor-toolbar" id="ct-story-toolbar">
               <button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>
               <button type="button" data-cmd="italic" title="Italic"><em>I</em></button>
@@ -154,7 +154,7 @@
           </div>
 
           <div class="form-group">
-            <label class="form-group__label">Acceptance Criteria <span class="required">*</span></label>
+            <label class="form-group__label">Acceptance Criteria</label>
             <div class="editor-toolbar" id="ct-ac-toolbar">
               <button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>
               <button type="button" data-cmd="italic" title="Italic"><em>I</em></button>
@@ -332,8 +332,7 @@
 
       <footer class="footer">
         <div id="ct-footer-manual" style="display:none">
-          <button class="btn btn--secondary" id="ct-save-draft">Save Draft</button>
-          <button class="btn btn--primary" id="ct-preview-btn">Submit to Plane</button>
+          <button class="btn btn--primary" id="ct-generate-btn">Generate Task</button>
         </div>
         <div id="ct-footer-ai" style="display:none">
           <button class="btn btn--primary" id="ct-ai-generate-btn">&#9889; Generate with AI</button>

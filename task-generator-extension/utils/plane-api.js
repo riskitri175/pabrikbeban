@@ -438,27 +438,28 @@ const PlaneAPI = {
   },
 
   _buildDescriptionHtml(task) {
-    const parts = [];
+    const entries = [];
     const payload = task.payload || {};
     const fieldOrder = task._fieldOrder || [];
 
-    let entries = Object.entries(payload).filter(([k]) =>
+    let filtered = Object.entries(payload).filter(([k]) =>
       !['story', 'acceptance_criteria', 'dod'].includes(k) && k !== '0'
     );
 
     if (fieldOrder.length > 0) {
       const orderMap = {};
       fieldOrder.forEach((k, i) => { orderMap[k] = i; });
-      entries.sort((a, b) => (orderMap[a[0]] ?? 999) - (orderMap[b[0]] ?? 999));
+      filtered.sort((a, b) => (orderMap[a[0]] ?? 999) - (orderMap[b[0]] ?? 999));
     }
 
-    for (const [key, value] of entries) {
+    for (const [key, value] of filtered) {
       if (value) {
-        parts.push(`<p><strong>${this._escapeHtml(key)}:</strong> ${this._escapeHtml(String(value))}</p>`);
+        entries.push(`<tr><td>${this._escapeHtml(key)}</td><td>${this._escapeHtml(String(value))}</td></tr>`);
       }
     }
 
-    return parts.join('\n');
+    if (entries.length === 0) return '';
+    return `<table><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>${entries.join('')}</tbody></table>`;
   },
 
   _escapeHtml(text) {

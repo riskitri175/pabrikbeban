@@ -3,6 +3,9 @@ let stateCache = {};
 let memberCache = {};
 let editingIssueId = null;
 let allTasks = [];
+let batchEditingTaskId = null;
+let batchEditingTasks = [];
+let batchEditPreviousMode = 'direct';
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadWorkspaceSwitcher();
@@ -162,21 +165,15 @@ function collectFormData() {
 }
 
 async function generateFromManualForm(data, mode) {
-  if (!data.templateId) { showToast('Pilih template terlebih dahulu.', 'error'); return; }
   if (!data.title) { showToast('Masukkan judul task.', 'error'); return; }
-  if (!data.story || data.story === '<br>') { showToast('Masukkan story/deskripsi task.', 'error'); return; }
 
-  const plainAc = data.acceptanceCriteriaHtml ? data.acceptanceCriteriaHtml.replace(/<[^>]*>/g, '').trim() : '';
-  if (!plainAc) { showToast('Tulis minimal 1 Acceptance Criteria.', 'error'); return; }
-
-  const btn = document.getElementById(mode === 'draft' ? 'ct-save-draft' : 'ct-preview-btn');
+  const btn = document.getElementById('ct-generate-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
   showProgress('AI sedang memproses task...');
 
   try {
     const templates = await Storage.getTemplates();
-    const tpl = (templates || []).find((t) => t.id === data.templateId);
-    if (!tpl) { showToast('Template tidak ditemukan.', 'error'); return; }
+    const tpl = (templates || []).find((t) => t.id === data.templateId) || { id: '', name: 'No Template', fields: [], header: {} };
 
     const tplFields = tpl.fields || [];
     const tplFieldKeys = tplFields.map((f) => f.key);
@@ -296,10 +293,24 @@ Return ONLY a valid JSON array (no markdown, no backticks):
       source_prd: '',
       tasks: []
     };
+    if (!batch.generations) batch.generations = [];
 
-    function flattenTasks(items, parentId) {
+    const generationId = 'gen_' + Date.now();
+    batch.generations.push({
+      id: generationId,
+      label: data.title || 'Untitled',
+      timestamp: Date.now()
+    });
+
+    function flattenTasks(items, parentId, genId) {
       const flat = [];
       let seq = 0;
+      if (!genId && parentId) {
+        const parentTask = (batch.tasks || []).find((t) => t.id === parentId);
+        if (parentTask && parentTask.generation_id) genId = parentTask.generation_id;
+      }
+      if (!genId) genId = generationId;
+      const createdAt = Date.now();
       items.forEach((item) => {
         const children = item.children || [];
         delete item.children;
@@ -334,6 +345,8 @@ Return ONLY a valid JSON array (no markdown, no backticks):
         });
         flat.push({
           id: taskId,
+          generation_id: genId,
+          created_at: createdAt,
           title: item.title || data.title,
           full_title: item.title || data.title,
           parent_id: parentId || null,
@@ -343,7 +356,7 @@ Return ONLY a valid JSON array (no markdown, no backticks):
           _fieldOrder: tplFieldKeys
         });
         if (children.length > 0) {
-          flat.push(...flattenTasks(children, taskId));
+          flat.push(...flattenTasks(children, taskId, genId));
         }
       });
       return flat;
@@ -354,7 +367,7 @@ Return ONLY a valid JSON array (no markdown, no backticks):
     batch.fieldOrder = tplFieldKeys;
     await Storage.saveActiveBatch(batch);
 
-    showToast(`Task ${mode === 'draft' ? 'saved as draft' : 'generated'}! Check batch for review.`, 'success');
+    showToast(`Task generated! Check batch for review.`, 'success');
     resetForm();
     switchMode('batch');
     await loadBatch();
@@ -362,7 +375,7 @@ Return ONLY a valid JSON array (no markdown, no backticks):
     showToast(`Gagal generate: ${err.message}`, 'error');
   } finally {
     hideProgress();
-    if (btn) { btn.disabled = false; btn.textContent = mode === 'draft' ? 'Save Draft' : 'Submit to Plane'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Generate Task'; }
   }
 }
 
@@ -981,6 +994,11 @@ async function submitDirectToPlane() {
     return;
   }
 
+  if (batchEditingTaskId) {
+    await saveBatchTaskEdit();
+    return;
+  }
+
   const btn = document.getElementById('dt-submit-btn');
   btn.disabled = true;
   btn.textContent = 'Submitting...';
@@ -1136,12 +1154,23 @@ async function generateWithAI() {
       source_prd: prd.slice(0, 500),
       tasks: []
     };
+    if (!batch.generations) batch.generations = [];
+
+    const generationId = 'gen_' + Date.now();
+    const prdLabel = prd.length > 30 ? prd.slice(0, 30) + '...' : prd;
+    batch.generations.push({
+      id: generationId,
+      label: prdLabel || 'AI Generate',
+      timestamp: Date.now()
+    });
 
     let aiTaskCounter = 0;
     tasks.forEach((t) => {
       const fullTitle = `[${t.bracket || 'TASK'}] [${t.severity || 'P3'}][${t.priority || 'Medium'}] ${t.title || 'Untitled'}`;
       batch.tasks.push({
         id: 'task_ai_' + Date.now() + '_' + (aiTaskCounter++) + '_' + Math.random().toString(36).slice(2, 6),
+        generation_id: generationId,
+        created_at: Date.now(),
         parent_id: null,
         bracket: t.bracket || '',
         severity: t.severity || 'P3',
@@ -1254,14 +1283,6 @@ async function populateParentDropdown() {
   if (group) group.style.display = parents.length > 0 ? 'block' : 'none';
 
   select.value = currentValue;
-}
-
-// ===== SAVE DRAFT =====
-
-async function saveDraft() {
-  const data = collectFormData();
-  if (!data) return;
-  await generateFromManualForm(data, 'draft');
 }
 
 // ===== FETCH EXTERNAL MODAL =====
@@ -1430,10 +1451,15 @@ async function importToWorkspace() {
   }
 
   const batch = await Storage.getActiveBatch() || { batch_id: 'batch_' + Date.now(), source_prd: '', tasks: [] };
+  if (!batch.generations) batch.generations = [];
+
+  const generationId = 'gen_' + Date.now();
 
   const parentId = 'task_import_' + Date.now();
   batch.tasks.push({
     id: parentId,
+    generation_id: generationId,
+    created_at: Date.now(),
     parent_id: null,
     bracket: '',
     severity: 'P2',
@@ -1449,6 +1475,8 @@ async function importToWorkspace() {
   (children || []).forEach((child) => {
     batch.tasks.push({
       id: 'task_import_child_' + Date.now() + '_' + childCount,
+      generation_id: generationId,
+      created_at: Date.now(),
       parent_id: parentId,
       bracket: '',
       severity: 'P2',
@@ -1462,9 +1490,14 @@ async function importToWorkspace() {
     childCount++;
   });
 
-  await Storage.saveActiveBatch(batch);
-
   const totalImported = 1 + childCount;
+  batch.generations.push({
+    id: generationId,
+    label: `Imported ${totalImported} task${totalImported > 1 ? 's' : ''}`,
+    timestamp: Date.now()
+  });
+
+  await Storage.saveActiveBatch(batch);
   showToast(`Imported ${totalImported} task${totalImported > 1 ? 's' : ''} to workspace.`, 'success');
   importBtn.textContent = 'Import to Workspace';
   closeFetchModal();
@@ -1790,7 +1823,7 @@ async function loadBatch() {
   if (fo) {
     tasks.forEach((t) => { if (!t._fieldOrder) t._fieldOrder = fo; });
   }
-  renderBatchTasks(tasks, fo);
+  renderBatchTasks(tasks, fo, batch?.generations);
   await populateParentDropdown();
 }
 
@@ -1828,9 +1861,12 @@ function renderTaskCard(task, fieldOrder) {
           if (entries.length === 0) return '';
           return `<div class="task-card__section">
             <div class="task-card__section-title">Task Fields</div>
-            <div class="task-card__field-values">${entries.map(([k, v]) =>
-              `<div class="task-card__field-row"><span class="task-card__field-key">${escapeHtml(k)}</span><span class="task-card__field-value">${formatFieldValue(v)}</span></div>`
-            ).join('')}</div>
+            <table class="task-card__table">
+              <thead><tr><th>Key</th><th>Value</th></tr></thead>
+              <tbody>${entries.map(([k, v]) =>
+                `<tr><td>${escapeHtml(k)}</td><td>${formatFieldValue(v)}</td></tr>`
+              ).join('')}</tbody>
+            </table>
           </div>`;
         })()}
         <div class="task-card__refine">
@@ -1841,7 +1877,7 @@ function renderTaskCard(task, fieldOrder) {
     </div>`;
 }
 
-function renderBatchTasks(tasks, fieldOrder) {
+function renderBatchTasks(tasks, fieldOrder, generations) {
   const list = document.getElementById('batch-task-list');
   const emptyState = document.getElementById('empty-state');
   const count = tasks.length;
@@ -1856,25 +1892,62 @@ function renderBatchTasks(tasks, fieldOrder) {
 
   emptyState.style.display = 'none';
 
-  const parents = tasks.filter(t => !t.parent_id);
-  const children = tasks.filter(t => t.parent_id);
+  function renderGroup(groupTasks) {
+    let html = '';
+    const parents = groupTasks.filter(t => !t.parent_id);
+    const children = groupTasks.filter(t => t.parent_id);
+
+    parents.forEach((parent) => {
+      html += renderTaskCard(parent, fieldOrder);
+
+      const childList = children.filter(c => c.parent_id === parent.id);
+      if (childList.length > 0) {
+        childList.forEach((child) => {
+          html += renderTaskCard(child, fieldOrder);
+        });
+      }
+    });
+
+    const orphans = children.filter(c => !parents.some(p => p.id === c.parent_id));
+    orphans.forEach((child) => {
+      html += renderTaskCard(child, fieldOrder);
+    });
+
+    return html;
+  }
+
+  const hasGenerations = Array.isArray(generations) && generations.length > 0;
+  const hasGenTasks = tasks.some(t => t.generation_id);
 
   let html = '';
-  parents.forEach((parent, pi) => {
-    html += renderTaskCard(parent, fieldOrder);
 
-    const childList = children.filter(c => c.parent_id === parent.id);
-    if (childList.length > 0) {
-      childList.forEach((child) => {
-        html += renderTaskCard(child, fieldOrder);
-      });
+  if (hasGenerations && hasGenTasks) {
+    const genMap = new Map();
+    generations.forEach((g) => genMap.set(g.id, g));
+
+    const genIds = [...new Set(tasks.map(t => t.generation_id).filter(Boolean))];
+
+    genIds.sort((a, b) => {
+      const ta = (genMap.get(a) || {}).timestamp || 0;
+      const tb = (genMap.get(b) || {}).timestamp || 0;
+      return tb - ta;
+    });
+
+    genIds.forEach((genId) => {
+      const gen = genMap.get(genId) || { label: 'Tasks', timestamp: 0 };
+      const groupTasks = tasks.filter(t => t.generation_id === genId);
+      groupTasks.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+      html += `<div class="batch-divider"><span class="batch-divider__label">${escapeHtml(gen.label)}</span></div>`;
+      html += renderGroup(groupTasks);
+    });
+
+    const ungrouped = tasks.filter(t => !t.generation_id);
+    if (ungrouped.length > 0) {
+      html += renderGroup(ungrouped);
     }
-  });
-
-  const orphans = children.filter(c => !parents.some(p => p.id === c.parent_id));
-  orphans.forEach((child) => {
-    html += renderTaskCard(child, fieldOrder);
-  });
+  } else {
+    html += renderGroup(tasks);
+  }
 
   list.innerHTML = html;
   bindBatchEvents(tasks);
@@ -1910,8 +1983,14 @@ function bindBatchEvents(tasks) {
   document.querySelectorAll('.task-card__header').forEach((header) => {
     header.addEventListener('click', (e) => {
       if (e.target.type === 'checkbox' || e.target.classList.contains('task-card__add-child')) return;
-      const btn = header.querySelector('.task-card__expand');
-      if (btn) btn.click();
+      const card = header.closest('.task-card');
+      const task = findTaskById(tasks, card.dataset.taskId);
+      if (!task) return;
+      const body = card.querySelector('.task-card__body');
+      const expandBtn = header.querySelector('.task-card__expand');
+      const isOpen = body.classList.toggle('task-card__body--open');
+      if (expandBtn) expandBtn.classList.toggle('task-card__expand--open', isOpen);
+      openBatchTaskEditor(task, tasks);
     });
   });
 
@@ -1987,6 +2066,116 @@ async function saveBatchTasks(tasks) {
   const batch = await Storage.getActiveBatch() || {};
   batch.tasks = tasks;
   await Storage.saveActiveBatch(batch);
+}
+
+function parseDescriptionToTaskFields(html, payload) {
+  const container = document.createElement('div');
+  container.innerHTML = html || '';
+  const updates = {};
+
+  const rows = container.querySelectorAll('tr');
+  rows.forEach((row) => {
+    const cells = row.querySelectorAll('td');
+    if (cells.length < 2) return;
+    const key = cells[0].textContent.trim();
+    const val = cells[1].textContent.trim();
+    if (!key || !Object.prototype.hasOwnProperty.call(payload, key)) return;
+    if (['story', 'acceptance_criteria', 'dod', '0'].includes(key)) return;
+    updates[key] = val || '—';
+  });
+
+  if (Object.keys(updates).length > 0) return updates;
+
+  const text = (container.innerText || container.textContent || '').trim();
+  if (!text) return {};
+
+  text.split('\n').forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return;
+    const m = line.match(/^([A-Z][A-Z0-9_]*):\s*(.*)$/);
+    if (!m) return;
+    const key = m[1];
+    if (!Object.prototype.hasOwnProperty.call(payload, key)) return;
+    if (['story', 'acceptance_criteria', 'dod', '0'].includes(key)) return;
+    const val = m[2].trim();
+    updates[key] = val || '—';
+  });
+  return updates;
+}
+
+// ===== BATCH TASK EDITOR (uses Direct to Plane form) =====
+
+function openBatchTaskEditor(task, tasks) {
+  batchEditingTaskId = task.id;
+  batchEditingTasks = tasks;
+
+  const activeTab = document.querySelector('[data-ct-mode].toolbar__tab--active');
+  batchEditPreviousMode = activeTab ? activeTab.dataset.ctMode : 'direct';
+
+  resetDirectForm();
+  editingIssueId = null;
+
+  document.getElementById('ct-tabbar').style.display = 'none';
+
+  document.getElementById('dt-title').value = task.title || '';
+  if (dtQuill) dtQuill.innerHTML = PlaneAPI._buildDescriptionHtml(task);
+  document.getElementById('dt-priority').value = PRIORITY_MAP[task.priority] || task.priority || '';
+
+  switchCTMode('direct');
+  document.getElementById('create-panel-title').textContent = 'Edit Task';
+  const cancelBtn = document.getElementById('dt-cancel-btn');
+  if (cancelBtn) cancelBtn.style.display = 'inline-block';
+  const submitBtn = document.getElementById('dt-submit-btn');
+  if (submitBtn) submitBtn.textContent = 'Save Changes';
+}
+
+async function saveBatchTaskEdit() {
+  const title = document.getElementById('dt-title').value.trim();
+  if (!title) { showToast('Masukkan judul task.', 'error'); document.getElementById('dt-title').focus(); return; }
+
+  const btn = document.getElementById('dt-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  try {
+    const task = findTaskById(batchEditingTasks, batchEditingTaskId);
+    if (!task) { closeBatchTaskEditor(); return; }
+
+    task.title = title;
+    const priority = document.getElementById('dt-priority').value;
+    const inversePrio = { urgent: 'Critical', high: 'High', medium: 'Medium', low: 'Low' };
+    if (priority) task.priority = inversePrio[priority] || priority;
+    task.full_title = (task.bracket || task.severity || task.priority)
+      ? `[${task.bracket || 'TASK'}] [${task.severity || 'P3'}][${task.priority || 'Medium'}] ${title}`
+      : title;
+
+    const payload = task.payload || {};
+    task.payload = payload;
+    if (dtQuill) {
+      Object.assign(payload, parseDescriptionToTaskFields(dtQuill.innerHTML, payload));
+    }
+
+    await saveBatchTasks(batchEditingTasks);
+    showToast('Task updated.', 'success');
+    closeBatchTaskEditor();
+    await loadBatch();
+  } catch (err) {
+    showToast(`Gagal update task: ${err.message}`, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function closeBatchTaskEditor() {
+  batchEditingTaskId = null;
+  batchEditingTasks = [];
+
+  resetDirectForm();
+
+  const tabbar = document.getElementById('ct-tabbar');
+  if (tabbar) tabbar.style.display = '';
+  document.getElementById('create-panel-title').textContent = 'Create Task';
+
+  switchCTMode(batchEditPreviousMode);
 }
 
 async function deleteSelectedTasks() {
@@ -2240,10 +2429,8 @@ function bindEvents() {
   const titleEl = document.getElementById('ct-title');
 
   initManualEditors();
-  const previewBtn = document.getElementById('ct-preview-btn');
-  if (previewBtn) previewBtn.addEventListener('click', submitTask);
-  const saveDraftBtn = document.getElementById('ct-save-draft');
-  if (saveDraftBtn) saveDraftBtn.addEventListener('click', saveDraft);
+  const generateBtn = document.getElementById('ct-generate-btn');
+  if (generateBtn) generateBtn.addEventListener('click', submitTask);
 
   document.querySelectorAll('[data-ct-mode]').forEach((tab) => {
     tab.addEventListener('click', () => {
@@ -2263,7 +2450,11 @@ function bindEvents() {
 
   document.getElementById('dt-submit-btn').addEventListener('click', submitDirectToPlane);
   document.getElementById('dt-cancel-btn').addEventListener('click', () => {
-    resetDirectForm();
-    document.getElementById('dt-submit-btn').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (batchEditingTaskId) {
+      closeBatchTaskEditor();
+    } else {
+      resetDirectForm();
+      document.getElementById('dt-submit-btn').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   });
 }
